@@ -227,18 +227,24 @@ class TaobaoAdapter(PlatformAdapter):
                 )
             else:
                 # 通用物料搜索接口（不需要 session）
+                # taobao.tbk.material.optional 入参：q, adzone_id, page_no, page_size
                 result = await self._call_api(
-                    "taobao.tbk.dg.material.optional",
+                    "taobao.tbk.material.optional",
                     {
                         "q": keyword,
                         "adzone_id": self.adzone_id,
                         "page_no": page,
                         "page_size": page_size,
-                        "sort": "tk_rate_des",
                     }
                 )
 
-            items = result.get("tbk_sc_material_optional_response", {}).get("result_list", {}).get("map_data", [])
+            # 根据接口返回结构解析
+            if self.session:
+                # SC 接口返回结构
+                items = result.get("tbk_sc_material_optional_response", {}).get("result_list", {}).get("map_data", [])
+            else:
+                # 普通物料接口返回结构
+                items = result.get("tbk_material_optional_response", {}).get("result_list", {}).get("map_data", [])
 
             products = []
             for item in items:
