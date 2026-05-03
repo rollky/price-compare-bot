@@ -362,14 +362,18 @@ class PDDAdapter(PlatformAdapter):
                 min_group_price = Decimal(str(item.get("min_group_price", 0))) / 100
                 coupon_discount = Decimal(str(item.get("coupon_discount", 0))) / 100
 
+                goods_id = str(item.get("goods_id", ""))
+                goods_sign = item.get("goods_sign", "")
+
                 product = ProductInfo(
                     platform=PlatformType.PDD,
-                    item_id=str(item.get("goods_id", "")),
+                    item_id=goods_id,
                     title=item.get("goods_name", ""),
                     current_price=min_group_price,
                     product_image=item.get("goods_thumbnail_url", ""),
                     shop_name=item.get("mall_name", ""),
                     commission_rate=Decimal(str(item.get("promotion_rate", 0))) / 1000 if item.get("promotion_rate") else None,
+                    promotion_link=f"https://mobile.yangkeduo.com/duo_coupon_landing.html?goods_id={goods_id}&pid={self.pid}&goods_sign={goods_sign}" if goods_sign else None,
                 )
 
                 if coupon_discount > 0:
