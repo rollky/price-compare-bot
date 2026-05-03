@@ -264,12 +264,9 @@ class PDDAdapter(PlatformAdapter):
                 promotion_link = await self.convert_link(item_id, "", goods_sign)
                 if promotion_link:
                     product.promotion_link = promotion_link
-                else:
-                    # 转链失败，使用拼接的推广链接
-                    product.promotion_link = f"https://mobile.yangkeduo.com/duo_coupon_landing.html?goods_id={item_id}&pid={self.pid}&goods_sign={goods_sign}"
             except Exception as e:
                 logger.warning(f"获取拼多多推广链接失败: {e}")
-                # 降级处理：直接拼接推广链接
+                # 降级：使用拼接链接
                 product.promotion_link = f"https://mobile.yangkeduo.com/duo_coupon_landing.html?goods_id={item_id}&pid={self.pid}&goods_sign={goods_sign}"
 
             return product
@@ -307,13 +304,7 @@ class PDDAdapter(PlatformAdapter):
                     # 降级返回原始链接
                     return original_link or f"https://mobile.yangkeduo.com/goods.html?goods_id={item_id}"
 
-            # 两段 PID 不支持转链接口，直接返回拼接的推广链接
-            # 拼接链接同样有效，包含 pid 和 goods_sign 即可追踪佣金
-            if self.pid and self.pid.count("_") == 1:
-                logger.info(f"两段 PID 不支持转链接口，使用拼接链接: {self.pid}")
-                return f"https://mobile.yangkeduo.com/duo_coupon_landing.html?goods_id={item_id}&pid={self.pid}&goods_sign={actual_goods_sign}"
-
-            # 三段 PID 才调用转链接口
+            # 调用转链接口生成推广链接
             import json
             custom_params = json.dumps({"uid": "wechat_bot"})
             params = {
@@ -342,7 +333,8 @@ class PDDAdapter(PlatformAdapter):
 
         except Exception as e:
             logger.error(f"拼多多转链失败: {e}")
-            return f"https://mobile.yangkeduo.com/goods.html?goods_id={item_id}"
+            # 降级：返回拼接的推广链接
+            return f"https://mobile.yangkeduo.com/duo_coupon_landing.html?goods_id={item_id}&pid={self.pid}&goods_sign={actual_goods_sign}"
 
     async def search(self, keyword: str, page: int = 1, page_size: int = 10) -> SearchResult:
         """搜索拼多多商品"""
