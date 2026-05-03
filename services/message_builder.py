@@ -275,44 +275,25 @@ class MessageBuilder:
 
     @classmethod
     def _build_description(cls, product: ProductInfo) -> str:
-        """构建商品详细描述"""
+        """构建商品描述（精简版，适合微信图文）"""
         lines = []
 
-        # 价格信息
-        if product.original_price and product.original_price > product.current_price:
-            lines.append(f"💰 原价：¥{product.original_price}")
-
-        lines.append(f"🏷️ 现价：¥{product.current_price}")
-
-        # 优惠券
+        # 第一行：价格信息（券后价优先）
         if product.coupon:
-            lines.append(f"🎫 优惠券：{product.coupon.title}")
-            lines.append(f"💵 优惠：¥{product.coupon.amount}")
-            lines.append(f"✅ 券后价：¥{product.final_price}")
+            lines.append(f"🔥券后¥{product.final_price} 省¥{product.coupon.amount}")
+        else:
+            lines.append(f"🔥现价¥{product.current_price}")
 
-        # 折扣信息
-        if product.discount_rate < 1:
-            discount_percent = int((1 - product.discount_rate) * 100)
-            lines.append(f"🔥 折扣：{discount_percent}% off")
-
-        # 销量和评价
+        # 第二行：销量+平台
+        platform_icon = cls.PLATFORM_ICONS.get(product.platform, "🛒")
         if product.sales_count:
             sales_str = cls._format_number(product.sales_count)
-            lines.append(f"📈 销量：{sales_str}")
+            lines.append(f"📈销量{sales_str} {platform_icon}{product.platform.value}")
+        else:
+            lines.append(f"{platform_icon}{product.platform.value} 精选好物")
 
-        if product.rating:
-            lines.append(f"⭐ 评分：{product.rating}/5")
-
-        # 店铺
-        if product.shop_name:
-            lines.append(f"🏪 店铺：{product.shop_name}")
-
-        # 建议
-        advice = cls._generate_advice(product)
-        if advice:
-            lines.append(f"\n💡 {advice}")
-
-        lines.append("\n👇 点击卡片领券购买")
+        # 第三行：行动号召
+        lines.append("👇点击卡片领券购买")
 
         return "\n".join(lines)
 
