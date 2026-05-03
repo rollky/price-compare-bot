@@ -278,9 +278,14 @@ class MessageBuilder:
         """构建商品描述（精简版，适合微信图文）"""
         lines = []
 
-        # 第一行：价格信息（券后价优先）
-        if product.coupon:
-            lines.append(f"🔥券后¥{product.final_price} 省¥{product.coupon.amount}")
+
+        # 第一行：优惠券信息
+        if product.coupon and product.coupon.amount > 0:
+            lines.append(f"🎫优惠券¥{product.coupon.amount}")
+
+        # 第二行：原价 vs 现价
+        if product.original_price and product.original_price > product.current_price:
+            lines.append(f"💰原价¥{product.original_price} 🔥现价¥{product.current_price}")
         else:
             lines.append(f"🔥现价¥{product.current_price}")
 
@@ -293,7 +298,7 @@ class MessageBuilder:
             lines.append(f"{platform_icon}{product.platform.value} 精选好物")
 
         # 第三行：行动号召
-        lines.append("👇点击卡片领券购买")
+        lines.append("👉点击卡片领券购买")
 
         return "\n".join(lines)
 
