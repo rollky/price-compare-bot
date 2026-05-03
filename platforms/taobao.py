@@ -106,12 +106,32 @@ class TaobaoAdapter(PlatformAdapter):
         if "tb.cn" in link:
             try:
                 async with httpx.AsyncClient(follow_redirects=True, timeout=10.0) as client:
-                    # 使用 GET 请求而不是 HEAD，很多短链接不支持 HEAD
+                    # 使用 PC 浏览器 User-Agent 和完整的请求头
                     response = await client.get(link, headers={
-                        "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X) AppleWebKit/605.1.15"
+                        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+                        "Accept-Language": "zh-CN,zh;q=0.9",
+                        "Accept-Encoding": "gzip, deflate, br",
+                        "Connection": "keep-alive",
                     })
                     expanded_url = str(response.url)
                     logger.info(f"淘宝短链接展开: {link} -> {expanded_url}")
+
+                    # 如果展开后还是短链接域名，可能是没有正确跳转
+                    # 尝试从响应内容中提取真实链接
+                    if "tb.cn" in expanded_url and expanded_url == link:
+                        # 读取响应内容查找跳转链接
+                        content = response.text
+                        import re
+                        # 查找商品ID
+                        item_id_match = re.search(r'itemId[=:]\s*(\d+)', content)
+                        if item_id_match:
+                            return item_id_match.group(1)
+                        # 查找标准商品链接
+                        url_match = re.search(r'https?://item\.taobao\.com/item\.htm\?[^\s"<>]+', content)
+                        if url_match:
+                            return self._extract_item_id(url_match.group(0))
+
                     return self._extract_item_id(expanded_url)
             except Exception as e:
                 logger.warning(f"展开淘宝短链接失败: {e}")
