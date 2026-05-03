@@ -153,13 +153,20 @@ async def handle_text_message(content: str, from_user: str) -> dict:
     """
     处理文本消息
 
-    处理优先级：口令 > URL > 关键词搜索
+    处理优先级：URL > 口令 > 关键词搜索
     """
     # 1. 检查是否是命令
     if content in ["帮助", "help", "菜单", "menu"]:
         return MessageBuilder.build_help_message()
 
-    # 2. 检查是否包含口令（如 ￥ABC123￥）
+    # 2. 提取消息中的URL（优先处理URL）
+    urls = URL_PATTERN.findall(content)
+    if urls:
+        # 有链接，优先处理第一个链接
+        log.info(f"从消息中提取到链接: {urls[0]}")
+        return await handle_link_message(urls[0])
+
+    # 3. 检查是否包含口令（如 ￥ABC123￥），只有没有URL时才处理口令
     if KoulingParser.is_kouling(content):
         log.info(f"检测到口令: {content[:50]}")
         kouling_url = await extract_and_parse_kouling(content)
@@ -173,13 +180,6 @@ async def handle_text_message(content: str, from_user: str) -> dict:
                 "请直接发送商品链接查询\n"
                 "或发送商品名称进行搜索"
             )
-
-    # 3. 提取消息中的URL
-    urls = URL_PATTERN.findall(content)
-    if urls:
-        # 有链接，优先处理第一个链接
-        log.info(f"从消息中提取到链接: {urls[0]}")
-        return await handle_link_message(urls[0])
 
     # 4. 没有URL，作为关键词搜索
     return await handle_search_message(content)

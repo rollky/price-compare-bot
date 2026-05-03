@@ -35,7 +35,7 @@ TAOBAO_CONFIG = PlatformConfig(
         re.compile(r"/item/(\d+)"),           # 路由格式 /item/123
         re.compile(r"itemId:\s*'(\d+)'"),     # JS格式
     ],
-    short_link_domains=["m.tb.cn", "s.click.taobao.com"],
+    short_link_domains=["m.tb.cn", "s.click.taobao.com", "e.tb.cn"],
     max_coupon_amount=1000,
 )
 
