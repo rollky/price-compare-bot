@@ -305,12 +305,9 @@ class PDDAdapter(PlatformAdapter):
                     return original_link or f"https://mobile.yangkeduo.com/goods.html?goods_id={item_id}"
 
             # 调用转链接口生成推广链接
-            import json
-            custom_params = json.dumps({"uid": "wechat_bot"})
             params = {
                 "goods_sign_list": f'["{actual_goods_sign}"]',
                 "p_id": self.pid,
-                "custom_parameters": custom_params,
             }
 
             result = await self._call_api(
