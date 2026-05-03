@@ -212,8 +212,8 @@ class MessageBuilder:
         # 优惠券
         if product.coupon:
             lines.append(f"🎫 优惠券：{product.coupon.title}")
+            lines.append(f"💵 优惠：¥{product.coupon.amount}")
             lines.append(f"✅ 券后价：¥{product.final_price}")
-            lines.append(f"💵 立省：¥{product.coupon.amount}")
 
         # 折扣信息
         if product.discount_rate < 1:

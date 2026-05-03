@@ -250,10 +250,17 @@ class PDDAdapter(PlatformAdapter):
 
             # 获取推广链接
             try:
-                product.promotion_link = await self.convert_link(item_id, "", goods_sign)
+                # 尝试转链获取推广链接
+                promotion_link = await self.convert_link(item_id, "", goods_sign)
+                if promotion_link:
+                    product.promotion_link = promotion_link
+                else:
+                    # 转链失败，使用拼接的推广链接
+                    product.promotion_link = f"https://mobile.yangkeduo.com/duo_coupon_landing.html?goods_id={item_id}&pid={self.pid}&goods_sign={goods_sign}"
             except Exception as e:
                 logger.warning(f"获取拼多多推广链接失败: {e}")
-                product.promotion_link = f"https://mobile.yangkeduo.com/goods.html?goods_id={item_id}"
+                # 降级处理：直接拼接推广链接
+                product.promotion_link = f"https://mobile.yangkeduo.com/duo_coupon_landing.html?goods_id={item_id}&pid={self.pid}&goods_sign={goods_sign}"
 
             return product
 
@@ -275,29 +282,43 @@ class PDDAdapter(PlatformAdapter):
             raise LinkConvertError("拼多多推广位ID未配置")
 
         try:
-            # 构建请求参数，优先使用 goods_sign
-            params = {
-                "p_id": self.pid,
-                "generate_short_url": True,
-            }
+            # 构建请求参数
+            # 注意：拼多多签名要求参数按照字母顺序排序
+            # goods_sign 和 p_id 是必须的
+            actual_goods_sign = goods_sign
 
-            if goods_sign:
-                params["goods_sign"] = goods_sign
-            else:
-                # 旧版API使用 goods_id_list，但已下线
-                # 这里尝试通过搜索获取 goods_sign
+            if not actual_goods_sign:
+                # 尝试通过搜索获取 goods_sign
                 search_result = await self.search_by_goods_id(item_id)
                 if search_result and search_result.get("goods_sign"):
-                    params["goods_sign"] = search_result["goods_sign"]
+                    actual_goods_sign = search_result["goods_sign"]
                 else:
                     logger.warning(f"无法获取商品签名，转链可能失败: {item_id}")
                     # 降级返回原始链接
                     return original_link or f"https://mobile.yangkeduo.com/goods.html?goods_id={item_id}"
 
-            result = await self._call_api(
-                "pdd.ddk.goods.promotion.url.generate",
-                params
-            )
+            # 构建参数
+            # goods_sign 需要 URL 编码
+            from urllib.parse import quote
+            params = {
+                "goods_sign": quote(actual_goods_sign, safe=''),
+                "p_id": self.pid,
+                "generate_schema_url": "true",
+            }
+
+            # 尝试使用 oauth 版本的接口
+            try:
+                result = await self._call_api(
+                    "pdd.ddk.oauth.goods.prom.url.generate",
+                    params
+                )
+            except APIError as e:
+                # 如果 oauth 接口失败，尝试普通接口
+                logger.warning(f"OAuth转链接口失败，尝试普通接口: {e}")
+                result = await self._call_api(
+                    "pdd.ddk.goods.promotion.url.generate",
+                    params
+                )
 
             data = result.get("goods_promotion_url_generate_response", {})
             urls = data.get("goods_promotion_url_list", [])
