@@ -308,12 +308,13 @@ class PDDAdapter(PlatformAdapter):
                     return original_link or f"https://mobile.yangkeduo.com/goods.html?goods_id={item_id}"
 
             # 构建参数 - 直接使用普通接口
+            # goods_sign_list 是逗号分隔的商品签名列表
             # custom_parameters 用于追踪订单来源，格式：{"uid":"用户ID"}
             import json
             custom_params = json.dumps({"uid": "wechat_bot"})
 
             params = {
-                "goods_sign": actual_goods_sign,
+                "goods_sign_list": f'["{actual_goods_sign}"]',  # JSON数组格式
                 "p_id": self.pid,
                 "custom_parameters": custom_params,
             }
