@@ -240,6 +240,8 @@ async def handle_search_message(keyword: str) -> dict:
         # 取前3个商品构建多图文消息（当前仅支持拼多多）
         top_products = all_products[:3]
 
+        log.info(f"搜索关键词 '{keyword}' 找到 {len(all_products)} 个商品，取前 {len(top_products)} 个")
+
         if len(top_products) == 1:
             return MessageBuilder.build_product_message(top_products[0])
         else:
