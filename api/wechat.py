@@ -247,14 +247,11 @@ async def handle_search_message(keyword: str) -> dict:
             log.info(f"只有1个商品，返回单图文")
             return MessageBuilder.build_product_message(top_products[0])
         else:
-            # 测试：先用纯文本返回多个商品
-            log.info(f"构建多商品文本消息，商品数: {len(top_products)}")
-            lines = [f"找到 {len(top_products)} 个商品：\n"]
-            for i, p in enumerate(top_products, 1):
-                lines.append(f"{i}. {p.title[:30]}...")
-                lines.append(f"   价格：¥{p.final_price}")
-                lines.append(f"   链接：{p.promotion_link[:40]}...\n")
-            return MessageBuilder.build_text_message("\n".join(lines))
+            # 微信限制：被动回复只能显示一条图文
+            # 微信限制：被动回复只能一条图文
+            # 使用汇总卡片形式，在描述中列出所有商品
+            log.info(f"找到 {len(top_products)} 个商品，返回汇总卡片")
+            return MessageBuilder.build_search_summary_message(top_products, keyword)
 
     except Exception as e:
         log.error(f"搜索失败: {e}")

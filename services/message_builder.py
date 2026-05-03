@@ -27,22 +27,11 @@ class MessageBuilder:
     def build_product_message(cls, product: ProductInfo) -> dict:
         """
         构建单个商品的回复消息（图文消息）
-
-        Args:
-            product: 商品信息
-
-        Returns:
-            微信图文消息字典
         """
         platform_icon = cls.PLATFORM_ICONS.get(product.platform, "🛒")
-
-        # 构建标题
         title = f"{platform_icon} {cls._truncate(product.title, 30)}"
-
-        # 构建描述
         description = cls._build_description(product)
 
-        # 构建图文消息
         return {
             "type": "news",
             "article_count": 1,
@@ -51,6 +40,54 @@ class MessageBuilder:
                 "description": description,
                 "pic_url": product.product_image,
                 "url": product.promotion_link or product.product_url,
+            }]
+        }
+
+    @classmethod
+    def build_search_summary_message(cls, products: List[ProductInfo], keyword: str) -> dict:
+        """
+        构建搜索结果汇总卡片（多商品对比）
+        """
+        if not products:
+            return cls.build_text_message(f'未找到 "{keyword}" 的相关商品')
+
+        # 按价格排序
+        sorted_products = sorted(products, key=lambda x: x.final_price)
+        cheapest = sorted_products[0]
+
+        # 构建标题
+        title = f"🔍 {keyword} 找到 {len(products)} 个优惠"
+
+        # 构建描述 - 列出所有商品
+        lines = [f"为您找到 {len(products)} 个商品：\n"]
+
+        for i, p in enumerate(sorted_products[:5], 1):  # 最多显示5个
+            platform_icon = cls.PLATFORM_ICONS.get(p.platform, "🛒")
+            price_str = f"¥{p.final_price}"
+
+            # 标记最低价
+            if i == 1:
+                price_str += " ✅最低"
+
+            # 标记优惠券
+            coupon_str = f" (券¥{p.coupon.amount})" if p.coupon else ""
+
+            lines.append(f"{i}. {platform_icon} {cls._truncate(p.title, 15)}")
+            lines.append(f"   价格：{price_str}{coupon_str}")
+            lines.append("")
+
+        lines.append(f"👆 点击卡片查看【{cheapest.title[:15]}...】")
+
+        description = "\n".join(lines)
+
+        return {
+            "type": "news",
+            "article_count": 1,
+            "articles": [{
+                "title": title,
+                "description": description,
+                "pic_url": cheapest.product_image,
+                "url": cheapest.promotion_link or cheapest.product_url,
             }]
         }
 
