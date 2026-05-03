@@ -135,13 +135,16 @@ class PriceService:
                             total=len(cached),
                             platform=p
                         ))
+                        logger.info(f"{p.value}搜索命中缓存: {keyword}")
                         continue
 
                 # 调用适配器搜索
                 adapter = self.adapters.get(p.value)
                 if not adapter:
+                    logger.warning(f"{p.value}适配器未找到")
                     continue
 
+                logger.info(f"开始{p.value}搜索: {keyword}")
                 result = await adapter.search(keyword, page, page_size)
 
                 # 写入缓存
@@ -149,10 +152,15 @@ class PriceService:
                     await self.cache.set_search_result(keyword, result.products, p)
 
                 results.append(result)
+                logger.info(f"{p.value}搜索成功: {keyword}, 找到{len(result.products)}个商品")
 
             except Exception as e:
                 logger.error(f"{p.value}搜索失败: {e}")
+                # 继续下一个平台，不影响其他平台
                 continue
+
+        if not results:
+            logger.warning(f"所有平台搜索失败: {keyword}")
 
         return results
 

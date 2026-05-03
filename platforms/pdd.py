@@ -76,9 +76,15 @@ class PDDAdapter(PlatformAdapter):
                     error = data["error_response"]
                     error_msg = error.get('error_msg', 'Unknown error')
                     error_code = error.get("error_code")
-                    logger.error(f"拼多多API错误: code={error_code}, msg={error_msg}")
+                    sub_msg = error.get('sub_msg', '')
+                    sub_code = error.get('sub_code', '')
+
+                    # 详细日志，包含子错误
+                    logger.error(f"拼多多API错误: code={error_code}, msg={error_msg}, sub_code={sub_code}, sub_msg={sub_msg}")
+                    logger.error(f"完整错误响应: {data}")
+
                     raise APIError(
-                        f"{error_msg}",
+                        f"{error_msg} (sub_code: {sub_code}, sub_msg: {sub_msg})",
                         platform="pdd",
                         status_code=error_code
                     )

@@ -143,21 +143,29 @@ async def wechat_callback(request: Request):
         )
 
 
+import re
+
+# URL 正则表达式
+URL_PATTERN = re.compile(r'https?://[^\s<>"{}|\\^`\[\]]+', re.IGNORECASE)
+
 async def handle_text_message(content: str, from_user: str) -> dict:
     """
     处理文本消息
 
-    判断是链接还是关键词，分别处理
+    优先提取消息中的URL，有URL就查商品；没有URL再当关键词搜索
     """
-    # 1. 检查是否是链接
-    if content.startswith("http://") or content.startswith("https://"):
-        return await handle_link_message(content)
-
-    # 2. 检查是否是命令
+    # 1. 检查是否是命令
     if content in ["帮助", "help", "菜单", "menu"]:
         return MessageBuilder.build_help_message()
 
-    # 3. 默认作为关键词搜索
+    # 2. 提取消息中的URL
+    urls = URL_PATTERN.findall(content)
+    if urls:
+        # 有链接，优先处理第一个链接
+        log.info(f"从消息中提取到链接: {urls[0]}")
+        return await handle_link_message(urls[0])
+
+    # 3. 没有URL，作为关键词搜索
     return await handle_search_message(content)
 
 
@@ -199,7 +207,7 @@ async def handle_search_message(keyword: str) -> dict:
     在多个平台搜索商品并返回结果
     """
     try:
-        # 搜索商品（优先淘宝）
+        # 搜索商品（多平台）
         results = await price_service.search(keyword, platform=None, page_size=3)
 
         if not results:
@@ -209,6 +217,9 @@ async def handle_search_message(keyword: str) -> dict:
         all_products = []
         for result in results:
             all_products.extend(result.products)
+
+        if not all_products:
+            return MessageBuilder.build_text_message(f'未找到 "{keyword}" 的相关商品')
 
         # 按价格排序
         all_products.sort(key=lambda x: x.final_price)
