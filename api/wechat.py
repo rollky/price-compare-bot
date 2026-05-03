@@ -249,9 +249,10 @@ async def handle_search_message(keyword: str) -> dict:
         else:
             # 微信限制：被动回复只能显示一条图文
             # 微信限制：被动回复只能一条图文
-            # 使用汇总卡片形式，在描述中列出所有商品
-            log.info(f"找到 {len(top_products)} 个商品，返回汇总卡片")
-            return MessageBuilder.build_search_summary_message(top_products, keyword)
+            # 显示最优惠的商品
+            cheapest = min(top_products, key=lambda x: x.final_price)
+            log.info(f"找到 {len(top_products)} 个商品，显示最优惠的: {cheapest.title[:30]}")
+            return MessageBuilder.build_product_message(cheapest)
 
     except Exception as e:
         log.error(f"搜索失败: {e}")
