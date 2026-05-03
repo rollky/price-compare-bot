@@ -238,12 +238,6 @@ async def handle_search_message(keyword: str) -> dict:
             return MessageBuilder.build_text_message(f'未找到 "{keyword}" 的相关商品')
 
         # 取前3个商品构建多图文消息（当前仅支持拼多多）
-        # 恢复多平台时改为: 每个平台取第一个
-        all_products = []
-        for result in results:
-            all_products.extend(result.products)
-
-        # 取前3个
         top_products = all_products[:3]
 
         if len(top_products) == 1:
