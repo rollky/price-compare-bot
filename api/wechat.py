@@ -123,6 +123,7 @@ async def wechat_callback(request: Request):
                 content=response["content"]
             )
         elif response.get("type") == "news":
+            log.info(f"返回多图文消息: {len(response['articles'])} 条图文")
             return build_news_xml_response(
                 to_user=from_user,
                 from_user=to_user,
@@ -243,9 +244,13 @@ async def handle_search_message(keyword: str) -> dict:
         log.info(f"搜索关键词 '{keyword}' 找到 {len(all_products)} 个商品，取前 {len(top_products)} 个")
 
         if len(top_products) == 1:
+            log.info(f"只有1个商品，返回单图文")
             return MessageBuilder.build_product_message(top_products[0])
         else:
             # 构建多图文消息（3个拼多多商品）
+            log.info(f"构建多图文消息，商品数: {len(top_products)}")
+            for i, p in enumerate(top_products):
+                log.info(f"商品{i+1}: title={p.title[:20]}, image={p.product_image[:30] if p.product_image else 'empty'}, url={p.promotion_link[:30] if p.promotion_link else 'empty'}")
             return MessageBuilder.build_multi_platform_message(top_products)
 
     except Exception as e:

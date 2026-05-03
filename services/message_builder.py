@@ -185,6 +185,8 @@ class MessageBuilder:
                 "url": product.promotion_link or product.product_url,
             })
 
+        logger.info(f"构建多图文消息: {len(articles)} 条图文")
+
         return {
             "type": "news",
             "article_count": len(articles),
