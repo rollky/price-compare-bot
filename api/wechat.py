@@ -237,14 +237,17 @@ async def handle_search_message(keyword: str) -> dict:
         if not all_products:
             return MessageBuilder.build_text_message(f'未找到 "{keyword}" 的相关商品')
 
-        # 按价格排序
-        all_products.sort(key=lambda x: x.final_price)
+        # 每个平台取第一个商品，构建多图文消息
+        top_products = []
+        for result in results:
+            if result.products:
+                top_products.append(result.products[0])
 
-        if len(all_products) == 1:
-            return MessageBuilder.build_product_message(all_products[0])
+        if len(top_products) == 1:
+            return MessageBuilder.build_product_message(top_products[0])
         else:
-            # 构建比价消息
-            return MessageBuilder.build_comparison_message(all_products[:3])
+            # 构建多图文消息（每个平台一个卡片）
+            return MessageBuilder.build_multi_platform_message(top_products)
 
     except Exception as e:
         log.error(f"搜索失败: {e}")

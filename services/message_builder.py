@@ -155,6 +155,43 @@ class MessageBuilder:
         }
 
     @classmethod
+    def build_multi_platform_message(cls, products: List[ProductInfo]) -> dict:
+        """
+        构建多平台多图文消息（每个平台一个卡片）
+
+        Args:
+            products: 各平台的商品列表
+
+        Returns:
+            多图文消息字典
+        """
+        if not products:
+            return cls.build_text_message("未找到相关商品")
+
+        articles = []
+        for product in products:
+            platform_icon = cls.PLATFORM_ICONS.get(product.platform, "🛒")
+
+            title = f"{platform_icon} {cls._truncate(product.title, 30)}"
+            if product.coupon:
+                title += f" 省¥{product.coupon.amount}"
+
+            description = cls._build_simple_description(product)
+
+            articles.append({
+                "title": title,
+                "description": description,
+                "pic_url": product.product_image,
+                "url": product.promotion_link or product.product_url,
+            })
+
+        return {
+            "type": "news",
+            "article_count": len(articles),
+            "articles": articles,
+        }
+
+    @classmethod
     def build_text_message(cls, text: str) -> dict:
         """
         构建纯文本消息
