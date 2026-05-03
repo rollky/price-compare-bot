@@ -227,9 +227,9 @@ class TaobaoAdapter(PlatformAdapter):
                 )
             else:
                 # 通用物料搜索接口（不需要 session）
-                # taobao.tbk.material.optional 入参：q, adzone_id, page_no, page_size
+                # taobao.tbk.dg.material.optional 入参：q, adzone_id, page_no, page_size
                 result = await self._call_api(
-                    "taobao.tbk.material.optional",
+                    "taobao.tbk.dg.material.optional",
                     {
                         "q": keyword,
                         "adzone_id": self.adzone_id,
