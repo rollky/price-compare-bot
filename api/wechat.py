@@ -250,7 +250,8 @@ async def handle_search_message(keyword: str) -> dict:
             # 构建多图文消息（3个拼多多商品）
             log.info(f"构建多图文消息，商品数: {len(top_products)}")
             for i, p in enumerate(top_products):
-                log.info(f"商品{i+1}: title={p.title[:30]}, image_len={len(p.product_image) if p.product_image else 0}, url_len={len(p.promotion_link) if p.promotion_link else 0}")
+                desc = MessageBuilder._build_simple_description(p)
+            log.info(f"商品{i+1}: title_len={len(p.title)}, desc_len={len(desc)}, image_len={len(p.product_image) if p.product_image else 0}, url_len={len(p.promotion_link) if p.promotion_link else 0}")
             return MessageBuilder.build_multi_platform_message(top_products)
 
     except Exception as e:
@@ -324,13 +325,14 @@ def build_news_xml_response(to_user: str, from_user: str, articles: list) -> str
     import time
 
     items_xml = ""
-    for article in articles:
+    for i, article in enumerate(articles):
         items_xml += f"""<item>
 <Title><![CDATA[{article['title']}]]></Title>
 <Description><![CDATA[{article['description']}]]></Description>
 <PicUrl><![CDATA[{article['pic_url']}]]></PicUrl>
 <Url><![CDATA[{article['url']}]]></Url>
 </item>"""
+        log.debug(f"图文{i+1}: title={article['title'][:20]}, desc_len={len(article['description'])}, pic={article['pic_url'][:30] if article['pic_url'] else 'empty'}, url={article['url'][:30] if article['url'] else 'empty'}")
 
     xml_template = f"""<xml>
 <ToUserName><![CDATA[{to_user}]]></ToUserName>
@@ -343,5 +345,7 @@ def build_news_xml_response(to_user: str, from_user: str, articles: list) -> str
 
     # 调试日志
     log.info(f"返回XML: ArticleCount={len(articles)}, items_xml长度={len(items_xml)}")
+    # 输出完整XML用于检查
+    log.info(f"完整XML:\n{xml_template}")
 
-    return PlainTextResponse(xml_template)
+    return PlainTextResponse(xml_template, media_type="application/xml")
