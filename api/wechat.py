@@ -247,12 +247,14 @@ async def handle_search_message(keyword: str) -> dict:
             log.info(f"只有1个商品，返回单图文")
             return MessageBuilder.build_product_message(top_products[0])
         else:
-            # 构建多图文消息（3个拼多多商品）
-            log.info(f"构建多图文消息，商品数: {len(top_products)}")
-            for i, p in enumerate(top_products):
-                desc = MessageBuilder._build_simple_description(p)
-            log.info(f"商品{i+1}: title_len={len(p.title)}, desc_len={len(desc)}, image_len={len(p.product_image) if p.product_image else 0}, url_len={len(p.promotion_link) if p.promotion_link else 0}")
-            return MessageBuilder.build_multi_platform_message(top_products)
+            # 测试：先用纯文本返回多个商品
+            log.info(f"构建多商品文本消息，商品数: {len(top_products)}")
+            lines = [f"找到 {len(top_products)} 个商品：\n"]
+            for i, p in enumerate(top_products, 1):
+                lines.append(f"{i}. {p.title[:30]}...")
+                lines.append(f"   价格：¥{p.final_price}")
+                lines.append(f"   链接：{p.promotion_link[:40]}...\n")
+            return MessageBuilder.build_text_message("\n".join(lines))
 
     except Exception as e:
         log.error(f"搜索失败: {e}")
