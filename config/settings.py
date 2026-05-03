@@ -45,6 +45,7 @@ class Settings(BaseSettings):
     TAOBAO_APP_SECRET: Optional[str] = None
     TAOBAO_ADZONE_ID: Optional[str] = None      # 推广位ID
     TAOBAO_SITE_ID: Optional[str] = None        # 媒体ID
+    TAOBAO_SESSION: Optional[str] = None        # OAuth授权session（SC接口需要）
 
     # 京东联盟配置
     JD_APP_KEY: Optional[str] = None

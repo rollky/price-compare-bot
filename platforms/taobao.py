@@ -28,6 +28,7 @@ class TaobaoAdapter(PlatformAdapter):
         self.app_secret = self.settings.TAOBAO_APP_SECRET
         self.adzone_id = self.settings.TAOBAO_ADZONE_ID
         self.site_id = self.settings.TAOBAO_SITE_ID
+        self.session = self.settings.TAOBAO_SESSION
 
     @property
     def platform_type(self) -> PlatformType:
@@ -42,7 +43,7 @@ class TaobaoAdapter(PlatformAdapter):
         # MD5加密
         return hashlib.md5(sign_str.encode()).hexdigest().upper()
 
-    async def _call_api(self, method: str, params: dict = None) -> dict:
+    async def _call_api(self, method: str, params: dict = None, session: str = None) -> dict:
         """调用淘宝API"""
         if not self.app_key or not self.app_secret:
             raise APIError("淘宝客配置未设置", platform="taobao")
@@ -60,6 +61,10 @@ class TaobaoAdapter(PlatformAdapter):
             "sign_method": "md5",
             "timestamp": timestamp,
         }
+
+        # SC接口需要session
+        if session:
+            base_params["session"] = session
 
         if params:
             base_params.update(params)
@@ -180,7 +185,7 @@ class TaobaoAdapter(PlatformAdapter):
 
         try:
             result = await self._call_api(
-                "taobao.tbk.sc.tpwd.create",  # 或 taobao.tbk.sc.material.optional
+                "taobao.tbk.tpwd.create",  # 通用接口，不需要 session
                 {
                     "text": "超值优惠",  # 口令弹框内容
                     "url": f"https://item.taobao.com/item.htm?id={item_id}",
@@ -189,7 +194,7 @@ class TaobaoAdapter(PlatformAdapter):
             )
 
             # 获取淘口令
-            data = result.get("tbk_sc_tpwd_create_response", {}).get("data", {})
+            data = result.get("tbk_tpwd_create_response", {}).get("data", {})
             tpwd = data.get("model", "")
 
             if tpwd:
@@ -206,17 +211,32 @@ class TaobaoAdapter(PlatformAdapter):
     async def search(self, keyword: str, page: int = 1, page_size: int = 10) -> SearchResult:
         """搜索淘宝商品"""
         try:
-            result = await self._call_api(
-                "taobao.tbk.sc.material.optional",
-                {
-                    "q": keyword,
-                    "adzone_id": self.adzone_id,
-                    "site_id": self.site_id,
-                    "page_no": page,
-                    "page_size": page_size,
-                    "sort": "tk_rate_des",  # 按佣金比率降序
-                }
-            )
+            # 如果没有 session，使用通用搜索接口
+            if self.session:
+                result = await self._call_api(
+                    "taobao.tbk.sc.material.optional",
+                    {
+                        "q": keyword,
+                        "adzone_id": self.adzone_id,
+                        "site_id": self.site_id,
+                        "page_no": page,
+                        "page_size": page_size,
+                        "sort": "tk_rate_des",  # 按佣金比率降序
+                    },
+                    session=self.session
+                )
+            else:
+                # 通用物料搜索接口（不需要 session）
+                result = await self._call_api(
+                    "taobao.tbk.dg.material.optional",
+                    {
+                        "q": keyword,
+                        "adzone_id": self.adzone_id,
+                        "page_no": page,
+                        "page_size": page_size,
+                        "sort": "tk_rate_des",
+                    }
+                )
 
             items = result.get("tbk_sc_material_optional_response", {}).get("result_list", {}).get("map_data", [])
 
