@@ -35,7 +35,7 @@ TAOBAO_CONFIG = PlatformConfig(
         re.compile(r"/item/(\d+)"),           # 路由格式 /item/123
         re.compile(r"itemId:\s*'(\d+)'"),     # JS格式
     ],
-    short_link_domains=["m.tb.cn", "s.click.taobao.com", "e.tb.cn"],
+    short_link_domains=["m.tb.cn", "s.click.taobao.com"],
     max_coupon_amount=1000,
 )
 
@@ -74,10 +74,9 @@ PDD_CONFIG = PlatformConfig(
     max_coupon_amount=200,
 )
 
-# 平台配置映射
+# 平台配置映射（当前仅支持拼多多）
+# 恢复多平台时改为: {"taobao": TAOBAO_CONFIG, "jd": JD_CONFIG, "pdd": PDD_CONFIG}
 PLATFORM_CONFIGS = {
-    "taobao": TAOBAO_CONFIG,
-    "jd": JD_CONFIG,
     "pdd": PDD_CONFIG,
 }
 

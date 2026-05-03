@@ -129,8 +129,9 @@ class PriceService:
         """
         results = []
 
-        # 确定要搜索的平台
-        platforms = [platform] if platform else [PlatformType.TAOBAO, PlatformType.JD, PlatformType.PDD]
+        # 确定要搜索的平台（当前仅支持拼多多）
+        # 恢复多平台时改为: [PlatformType.TAOBAO, PlatformType.JD, PlatformType.PDD]
+        platforms = [platform] if platform else [PlatformType.PDD]
 
         for p in platforms:
             try:
