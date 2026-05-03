@@ -365,21 +365,33 @@ class PDDAdapter(PlatformAdapter):
                 goods_id = str(item.get("goods_id", ""))
                 goods_sign = item.get("goods_sign", "")
 
+                # 构建推广链接（goods_sign为空时使用普通商品链接）
+                if goods_sign:
+                    promo_link = f"https://mobile.yangkeduo.com/duo_coupon_landing.html?goods_id={goods_id}&pid={self.pid}&goods_sign={goods_sign}"
+                else:
+                    promo_link = f"https://mobile.yangkeduo.com/goods.html?goods_id={goods_id}"
+
+                # 确保图片URL不为空
+                image_url = item.get("goods_thumbnail_url", "")
+                if not image_url:
+                    image_url = item.get("goods_image_url", "")
+
                 product = ProductInfo(
                     platform=PlatformType.PDD,
                     item_id=goods_id,
                     title=item.get("goods_name", ""),
                     current_price=min_group_price,
-                    product_image=item.get("goods_thumbnail_url", ""),
+                    product_image=image_url,
                     shop_name=item.get("mall_name", ""),
                     commission_rate=Decimal(str(item.get("promotion_rate", 0))) / 1000 if item.get("promotion_rate") else None,
-                    promotion_link=f"https://mobile.yangkeduo.com/duo_coupon_landing.html?goods_id={goods_id}&pid={self.pid}&goods_sign={goods_sign}" if goods_sign else None,
+                    promotion_link=promo_link,
                 )
 
                 if coupon_discount > 0:
                     product.coupon = CouponInfo(
                         amount=coupon_discount,
                         threshold=Decimal(str(item.get("coupon_min_order_amount", 0))) / 100,
+                        title=f"满{item.get('coupon_min_order_amount', 0)/100}减{coupon_discount}元",
                     )
 
                 products.append(product)

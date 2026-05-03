@@ -16,7 +16,7 @@ class Settings(BaseSettings):
     # 应用配置
     APP_NAME: str = "price-compare-bot"
     APP_ENV: str = "development"
-    DEBUG: bool = False
+    DEBUG: bool = True
 
     # 服务器配置
     HOST: str = "0.0.0.0"
