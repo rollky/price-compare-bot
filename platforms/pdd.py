@@ -340,12 +340,15 @@ class PDDAdapter(PlatformAdapter):
             if not self.pid:
                 raise APIError("拼多多PID未配置", platform="pdd")
 
+            # 拼多多API要求 page_size 必须在 10-100 之间
+            actual_page_size = max(10, min(100, page_size))
+
             result = await self._call_api(
                 "pdd.ddk.goods.search",
                 {
                     "keyword": keyword,
                     "page": page,
-                    "page_size": page_size,
+                    "page_size": actual_page_size,
                     "sort_type": 6,  # 按佣金比例排序
                     "pid": self.pid,
                 }
