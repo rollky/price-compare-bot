@@ -225,6 +225,58 @@ class CacheService:
             rating_count=data.get("rating_count"),
         )
 
+    async def record_search_keyword(self, keyword: str):
+        """
+        记录搜索关键词（用于统计热门）
+
+        Args:
+            keyword: 搜索关键词
+        """
+        if not self._redis or not keyword:
+            return
+
+        try:
+            # 使用当天的日期作为key，实现每日自动重置
+            from datetime import datetime
+            today = datetime.now().strftime("%Y%m%d")
+            key = f"hot_keywords:{today}"
+
+            # 使用ZINCRBY增加计数（自动去重并计数）
+            await self._redis.zincrby(key, 1, keyword.lower().strip())
+
+            # 设置过期时间（7天后自动删除）
+            await self._redis.expire(key, 7 * 24 * 3600)
+
+        except Exception as e:
+            logger.warning(f"记录搜索关键词失败: {e}")
+
+    async def get_hot_keywords(self, n: int = 10) -> list:
+        """
+        获取今日热门关键词
+
+        Args:
+            n: 返回前N个
+
+        Returns:
+            [(keyword, count), ...] 列表，按热度降序
+        """
+        if not self._redis:
+            return []
+
+        try:
+            from datetime import datetime
+            today = datetime.now().strftime("%Y%m%d")
+            key = f"hot_keywords:{today}"
+
+            # 获取前N个热门关键词（按分数降序）
+            results = await self._redis.zrevrange(key, 0, n - 1, withscores=True)
+
+            return [(keyword, int(count)) for keyword, count in results]
+
+        except Exception as e:
+            logger.warning(f"获取热门关键词失败: {e}")
+            return []
+
     async def clear_cache(self):
         """清空所有缓存（谨慎使用）"""
         if not self._redis:

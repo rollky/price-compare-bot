@@ -12,6 +12,7 @@ from loguru import logger
 from config import get_settings
 from services import LinkParser, PriceService, MessageBuilder
 from services.kouling_parser import extract_and_parse_kouling, KoulingParser
+from services.intent_classifier import IntentClassifier
 from core.exceptions import APIError, ProductNotFoundError, ParseError
 from core.logger import logger as log
 
@@ -159,6 +160,9 @@ async def handle_text_message(content: str, from_user: str) -> dict:
     if content in ["帮助", "help", "菜单", "menu"]:
         return MessageBuilder.build_help_message()
 
+    if content in ["热门", "今日热门", "hot", "排行榜"]:
+        return await handle_hot_keywords_message()
+
     # 2. 提取消息中的URL（优先处理URL）
     urls = URL_PATTERN.findall(content)
     if urls:
@@ -178,8 +182,14 @@ async def handle_text_message(content: str, from_user: str) -> dict:
                 "或发送商品名称进行搜索"
             )
 
-    # 4. 没有URL，作为关键词搜索
-    return await handle_search_message(content)
+    # 4. 没有URL，判断是否是商品关键词
+    if IntentClassifier.is_likely_product_keyword(content):
+        return await handle_search_message(content)
+    else:
+        # 不像是商品搜索，返回引导语
+        return MessageBuilder.build_text_message(
+            IntentClassifier.get_fallback_response(content)
+        )
 
 
 async def handle_link_message(link: str) -> dict:
@@ -211,6 +221,18 @@ async def handle_link_message(link: str) -> dict:
     except Exception as e:
         log.error(f"处理链接失败: {e}")
         return MessageBuilder.build_text_message("处理失败，请检查链接是否正确")
+
+
+async def handle_hot_keywords_message() -> dict:
+    """
+    处理今日热门关键词查询
+    """
+    try:
+        hot_keywords = await price_service.cache.get_hot_keywords(n=10)
+        return MessageBuilder.build_hot_keywords_message(hot_keywords)
+    except Exception as e:
+        log.error(f"获取热门关键词失败: {e}")
+        return MessageBuilder.build_text_message("获取热门关键词失败，请稍后重试")
 
 
 async def handle_search_message(keyword: str) -> dict:

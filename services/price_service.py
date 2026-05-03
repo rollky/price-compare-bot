@@ -162,7 +162,9 @@ class PriceService:
                     await self.cache.set_search_result(keyword, result.products, p)
 
                 results.append(result)
-                logger.info(f"{p.value}搜索成功: {keyword}, 找到{len(result.products)}个商品")
+
+                # 记录搜索关键词（用于统计热门）
+                await self.cache.record_search_keyword(keyword)
 
             except Exception as e:
                 logger.error(f"{p.value}搜索失败: {e}")

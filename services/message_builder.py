@@ -255,10 +255,13 @@ class MessageBuilder:
         help_text = """🤖 省钱助手使用指南
 
 【查价格】
-直接发送商品链接，自动查询优惠券和佣金
+直接发送商品链接，自动查询优惠券
 
 【搜商品】
 发送关键词，如：iPhone 15
+
+【热门搜索】
+发送"热门"查看今日大家都在买什么
 
 【支持平台】
 🔴 拼多多
@@ -270,6 +273,39 @@ class MessageBuilder:
 如有问题，请联系客服"""
 
         return cls.build_text_message(help_text)
+
+    @classmethod
+    def build_hot_keywords_message(cls, keywords: list) -> dict:
+        """
+        构建今日热门关键词消息
+
+        Args:
+            keywords: [(keyword, count), ...] 热门关键词列表
+
+        Returns:
+            文本消息字典
+        """
+        if not keywords:
+            return cls.build_text_message("暂无热门搜索数据\n\n发送商品名称或链接开始搜索吧！")
+
+        lines = ["🔥 今日热门搜索TOP10\n"]
+
+        for i, (keyword, count) in enumerate(keywords, 1):
+            # 根据排名添加不同emoji
+            if i == 1:
+                emoji = "🥇"
+            elif i == 2:
+                emoji = "🥈"
+            elif i == 3:
+                emoji = "🥉"
+            else:
+                emoji = f"{i}."
+
+            lines.append(f"{emoji} {keyword}")
+
+        lines.append("\n💡 发送以上关键词或任意商品名称开始搜索")
+
+        return cls.build_text_message("\n".join(lines))
 
     @classmethod
     def _build_description(cls, product: ProductInfo) -> str:
