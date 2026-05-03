@@ -276,29 +276,27 @@ class MessageBuilder:
         """构建商品描述（精简版，适合微信图文）"""
         lines = []
 
-
-        # 第一行：原价
-        if product.original_price and product.original_price > product.current_price:
-            lines.append(f"💰原价¥{product.original_price}")
-        else:
-            lines.append(f"💰原价¥{product.current_price}")
-
-        # 第二行：券后价/现价
-        if product.coupon and product.coupon.amount > 0:
-            lines.append(f"🔥券后价¥{product.final_price}")
-        else:
-            lines.append(f"🔥现价¥{product.current_price}")
-
-        # 第二行：销量+平台
         platform_icon = cls.PLATFORM_ICONS.get(product.platform, "🛒")
-        if product.sales_count:
-            sales_str = cls._format_number(product.sales_count)
-            lines.append(f"📈销量{sales_str} {platform_icon}{product.platform.value}")
-        else:
-            lines.append(f"{platform_icon}{product.platform.value} 精选好物")
 
-        # 第三行：行动号召
-        lines.append("👉点击卡片领券购买")
+        if product.coupon and product.coupon.amount > 0:
+            # 有优惠券时：
+            # 第一行：原价
+            if product.original_price and product.original_price > product.current_price:
+                lines.append(f"💰原价¥{product.original_price}")
+            else:
+                lines.append(f"💰原价¥{product.current_price}")
+            # 第二行：券后价
+            lines.append(f"🔥券后¥{product.final_price}")
+            # 第三行：行动号召
+            lines.append("👉点击卡片领券购买")
+        else:
+            # 无优惠券时：
+            # 第一行：现价
+            lines.append(f"💰现价¥{product.current_price}")
+            # 第二行：平台标识
+            lines.append(f"{platform_icon}精选好物")
+            # 第三行：行动号召
+            lines.append("👉点击卡片立即购买")
 
         return "\n".join(lines)
 
