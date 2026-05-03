@@ -51,7 +51,8 @@ class PriceService:
         platform: PlatformType,
         item_id: str,
         use_cache: bool = True,
-        force_refresh: bool = False
+        force_refresh: bool = False,
+        extra: dict = None
     ) -> ProductInfo:
         """
         获取商品信息
@@ -61,6 +62,7 @@ class PriceService:
             item_id: 商品ID
             use_cache: 是否使用缓存
             force_refresh: 是否强制刷新（忽略缓存）
+            extra: 额外参数（如拼多多的 goods_sign）
 
         Returns:
             ProductInfo对象
@@ -82,7 +84,14 @@ class PriceService:
             raise APIError(f"不支持的平台: {platform.value}")
 
         try:
-            product = await adapter.get_product_info(item_id)
+            # 对于拼多多，传递 extra 参数（包含 goods_sign）
+            if platform == PlatformType.PDD and extra and extra.get("goods_sign"):
+                product = await adapter.get_product_info(
+                    item_id=item_id,
+                    goods_sign=extra.get("goods_sign")
+                )
+            else:
+                product = await adapter.get_product_info(item_id)
 
             # 3. 写入缓存
             if use_cache:

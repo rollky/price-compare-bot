@@ -95,42 +95,125 @@ class PDDAdapter(PlatformAdapter):
             logger.error(f"拼多多API请求失败: {e}")
             raise APIError(f"请求失败: {str(e)}", platform="pdd")
 
-    async def parse_link(self, link: str) -> Optional[str]:
-        """解析拼多多链接提取商品ID"""
+    def _extract_goods_sign(self, link: str) -> Optional[str]:
+        """从链接中提取goods_sign"""
+        import re
+        pattern = r'goods_sign=([^&]+)'
+        match = re.search(pattern, link)
+        if match:
+            return match.group(1)
+        return None
+
+    async def parse_link(self, link: str) -> Optional[dict]:
+        """
+        解析拼多多链接
+        返回包含 goods_id 和 goods_sign 的字典
+        """
         if not await self.is_valid_link(link):
             return None
 
+        result = {
+            "goods_id": None,
+            "goods_sign": None
+        }
+
         # 尝试直接提取goods_id
-        item_id = self._extract_item_id(link)
-        if item_id:
-            return item_id
+        goods_id = self._extract_item_id(link)
+        if goods_id:
+            result["goods_id"] = goods_id
+
+        # 尝试提取goods_sign
+        goods_sign = self._extract_goods_sign(link)
+        if goods_sign:
+            result["goods_sign"] = goods_sign
+            return result
 
         # 处理短链接
         if "p.pinduoduo.com" in link:
             try:
                 async with httpx.AsyncClient(follow_redirects=True, timeout=10.0) as client:
-                    # 使用 GET 请求而不是 HEAD，很多短链接不支持 HEAD
                     response = await client.get(link, headers={
                         "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X) AppleWebKit/605.1.15"
                     })
                     expanded_url = str(response.url)
                     logger.info(f"拼多多短链接展开: {link} -> {expanded_url}")
-                    return self._extract_item_id(expanded_url)
+
+                    # 从展开后的链接提取
+                    result["goods_id"] = self._extract_item_id(expanded_url)
+                    result["goods_sign"] = self._extract_goods_sign(expanded_url)
+
+                    if result["goods_sign"] or result["goods_id"]:
+                        return result
             except Exception as e:
                 logger.warning(f"展开拼多多短链接失败: {e}")
                 return None
 
+        if result["goods_id"] or result["goods_sign"]:
+            return result
         return None
 
-    async def get_product_info(self, item_id: str) -> ProductInfo:
-        """获取拼多多商品信息"""
+    async def search_by_goods_id(self, goods_id: str) -> Optional[dict]:
+        """通过goods_id搜索商品，获取goods_sign"""
+        try:
+            result = await self._call_api(
+                "pdd.ddk.goods.search",
+                {
+                    "keyword": goods_id,
+                    "page": 1,
+                    "page_size": 10,
+                }
+            )
+
+            data = result.get("goods_search_response", {})
+            items = data.get("goods_list", [])
+
+            for item in items:
+                if str(item.get("goods_id")) == str(goods_id):
+                    return {
+                        "goods_id": goods_id,
+                        "goods_sign": item.get("goods_sign"),
+                        "goods_name": item.get("goods_name"),
+                    }
+
+            return None
+        except Exception as e:
+            logger.warning(f"通过goods_id搜索失败: {e}")
+            return None
+
+    async def get_product_info(self, item_id: str = None, goods_sign: str = None) -> ProductInfo:
+        """获取拼多多商品信息
+
+        Args:
+            item_id: 商品ID（goods_id）
+            goods_sign: 商品签名（优先使用）
+        """
         try:
             # 调用拼多多商品详情API
+            # 新版API使用 goods_sign 替代 goods_id_list
+            params = {}
+
+            if goods_sign:
+                params["goods_sign"] = goods_sign
+            elif item_id:
+                # 如果没有 goods_sign，尝试用 goods_id 搜索再获取详情
+                # 这里先返回错误，建议用户使用含 goods_sign 的链接
+                logger.warning("拼多多需要使用 goods_sign，建议分享商品链接而不是直接打开链接")
+                # 尝试通过搜索获取
+                search_result = await self.search_by_goods_id(item_id)
+                if search_result and search_result.get("goods_sign"):
+                    params["goods_sign"] = search_result["goods_sign"]
+                else:
+                    raise ProductNotFoundError(f"无法获取商品签名: {item_id}")
+            else:
+                raise ProductNotFoundError("缺少商品ID或商品签名")
+
+            # 添加pid
+            if self.pid:
+                params["pid"] = self.pid
+
             result = await self._call_api(
                 "pdd.ddk.goods.detail",
-                {
-                    "goods_id_list": f"[{item_id}]"
-                }
+                params
             )
 
             data = result.get("goods_detail_response", {})
@@ -167,7 +250,7 @@ class PDDAdapter(PlatformAdapter):
 
             # 获取推广链接
             try:
-                product.promotion_link = await self.convert_link(item_id, "")
+                product.promotion_link = await self.convert_link(item_id, "", goods_sign)
             except Exception as e:
                 logger.warning(f"获取拼多多推广链接失败: {e}")
                 product.promotion_link = f"https://mobile.yangkeduo.com/goods.html?goods_id={item_id}"
@@ -180,19 +263,40 @@ class PDDAdapter(PlatformAdapter):
             logger.error(f"获取拼多多商品信息失败: {e}")
             raise APIError(f"获取商品信息失败: {str(e)}", platform="pdd")
 
-    async def convert_link(self, item_id: str, original_link: str) -> str:
-        """转换拼多多链接为推广链接"""
+    async def convert_link(self, item_id: str, original_link: str, goods_sign: str = None) -> str:
+        """转换拼多多链接为推广链接
+
+        Args:
+            item_id: 商品ID
+            original_link: 原始链接
+            goods_sign: 商品签名（优先使用）
+        """
         if not self.pid:
             raise LinkConvertError("拼多多推广位ID未配置")
 
         try:
+            # 构建请求参数，优先使用 goods_sign
+            params = {
+                "p_id": self.pid,
+                "generate_short_url": True,
+            }
+
+            if goods_sign:
+                params["goods_sign"] = goods_sign
+            else:
+                # 旧版API使用 goods_id_list，但已下线
+                # 这里尝试通过搜索获取 goods_sign
+                search_result = await self.search_by_goods_id(item_id)
+                if search_result and search_result.get("goods_sign"):
+                    params["goods_sign"] = search_result["goods_sign"]
+                else:
+                    logger.warning(f"无法获取商品签名，转链可能失败: {item_id}")
+                    # 降级返回原始链接
+                    return original_link or f"https://mobile.yangkeduo.com/goods.html?goods_id={item_id}"
+
             result = await self._call_api(
                 "pdd.ddk.goods.promotion.url.generate",
-                {
-                    "p_id": self.pid,
-                    "goods_id_list": f"[{item_id}]",
-                    "generate_short_url": True,
-                }
+                params
             )
 
             data = result.get("goods_promotion_url_generate_response", {})

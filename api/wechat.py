@@ -11,6 +11,7 @@ from loguru import logger
 
 from config import get_settings
 from services import LinkParser, PriceService, MessageBuilder
+from services.kouling_parser import extract_and_parse_kouling, KoulingParser
 from core.exceptions import APIError, ProductNotFoundError, ParseError
 from core.logger import logger as log
 
@@ -152,20 +153,35 @@ async def handle_text_message(content: str, from_user: str) -> dict:
     """
     处理文本消息
 
-    优先提取消息中的URL，有URL就查商品；没有URL再当关键词搜索
+    处理优先级：口令 > URL > 关键词搜索
     """
     # 1. 检查是否是命令
     if content in ["帮助", "help", "菜单", "menu"]:
         return MessageBuilder.build_help_message()
 
-    # 2. 提取消息中的URL
+    # 2. 检查是否包含口令（如 ￥ABC123￥）
+    if KoulingParser.is_kouling(content):
+        log.info(f"检测到口令: {content[:50]}")
+        kouling_url = await extract_and_parse_kouling(content)
+        if kouling_url:
+            log.info(f"口令解析成功: {kouling_url}")
+            return await handle_link_message(kouling_url)
+        else:
+            # 口令无法解析，提示用户
+            return MessageBuilder.build_text_message(
+                "检测到口令，但暂时无法解析\n"
+                "请直接发送商品链接查询\n"
+                "或发送商品名称进行搜索"
+            )
+
+    # 3. 提取消息中的URL
     urls = URL_PATTERN.findall(content)
     if urls:
         # 有链接，优先处理第一个链接
         log.info(f"从消息中提取到链接: {urls[0]}")
         return await handle_link_message(urls[0])
 
-    # 3. 没有URL，作为关键词搜索
+    # 4. 没有URL，作为关键词搜索
     return await handle_search_message(content)
 
 
@@ -177,15 +193,15 @@ async def handle_link_message(link: str) -> dict:
     """
     try:
         # 解析链接
-        platform, item_id = await link_parser.parse(link)
+        platform, item_id, extra = await link_parser.parse(link)
 
         if not platform or not item_id:
             return MessageBuilder.build_text_message(
                 "无法识别该链接，请发送淘宝、京东或拼多多的商品链接"
             )
 
-        # 查询商品信息
-        product = await price_service.get_product(platform, item_id)
+        # 查询商品信息，传递 extra 参数（包含拼多多的 goods_sign）
+        product = await price_service.get_product(platform, item_id, extra=extra)
 
         # 构建回复消息
         return MessageBuilder.build_product_message(product)

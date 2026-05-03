@@ -2,7 +2,7 @@
 链接解析服务
 识别平台并提取商品ID
 """
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Dict, Any
 from urllib.parse import urlparse
 
 from models import PlatformType
@@ -30,18 +30,20 @@ class LinkParser:
             if config:
                 self.adapters[code] = adapter_class(config)
 
-    async def parse(self, link: str) -> Tuple[Optional[PlatformType], Optional[str]]:
+    async def parse(self, link: str) -> Tuple[Optional[PlatformType], Optional[str], Optional[Dict[str, Any]]]:
         """
-        解析链接，返回平台和商品ID
+        解析链接，返回平台和商品信息
 
         Args:
             link: 待解析的链接
 
         Returns:
-            (平台类型, 商品ID)，如果无法解析则返回 (None, None)
+            (平台类型, 商品ID, 额外信息)
+            如果无法解析则返回 (None, None, None)
+            对于拼多多，额外信息包含 goods_sign
         """
         if not link or not link.startswith("http"):
-            return None, None
+            return None, None, None
 
         # 清理链接（移除跟踪参数）
         cleaned_link = self._clean_link(link)
@@ -50,17 +52,26 @@ class LinkParser:
         for code, adapter in self.adapters.items():
             try:
                 if await adapter.is_valid_link(cleaned_link):
-                    item_id = await adapter.parse_link(cleaned_link)
-                    if item_id:
+                    result = await adapter.parse_link(cleaned_link)
+                    if result:
                         platform = PlatformType(code)
-                        logger.info(f"链接解析成功: {platform.value} - {item_id}")
-                        return platform, item_id
+
+                        # 处理拼多多返回的字典
+                        if platform == PlatformType.PDD and isinstance(result, dict):
+                            goods_id = result.get("goods_id")
+                            extra = {"goods_sign": result.get("goods_sign")}
+                            logger.info(f"链接解析成功: {platform.value} - goods_id={goods_id}, goods_sign={result.get('goods_sign')}")
+                            return platform, goods_id, extra
+                        else:
+                            # 其他平台返回字符串 item_id
+                            logger.info(f"链接解析成功: {platform.value} - {result}")
+                            return platform, result, None
             except Exception as e:
                 logger.warning(f"解析{code}链接失败: {e}")
                 continue
 
         logger.warning(f"无法识别链接: {link[:100]}")
-        return None, None
+        return None, None, None
 
     async def identify_platform(self, link: str) -> Optional[PlatformType]:
         """
