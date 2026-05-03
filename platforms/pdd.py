@@ -74,10 +74,13 @@ class PDDAdapter(PlatformAdapter):
                 # 拼多多错误处理
                 if "error_response" in data:
                     error = data["error_response"]
+                    error_msg = error.get('error_msg', 'Unknown error')
+                    error_code = error.get("error_code")
+                    logger.error(f"拼多多API错误: code={error_code}, msg={error_msg}")
                     raise APIError(
-                        f"{error.get('error_msg', 'Unknown error')}",
+                        f"{error_msg}",
                         platform="pdd",
-                        status_code=error.get("error_code")
+                        status_code=error_code
                     )
 
                 return data
@@ -206,6 +209,10 @@ class PDDAdapter(PlatformAdapter):
     async def search(self, keyword: str, page: int = 1, page_size: int = 10) -> SearchResult:
         """搜索拼多多商品"""
         try:
+            # 拼多多搜索需要pid参数
+            if not self.pid:
+                raise APIError("拼多多PID未配置", platform="pdd")
+
             result = await self._call_api(
                 "pdd.ddk.goods.search",
                 {
@@ -213,6 +220,7 @@ class PDDAdapter(PlatformAdapter):
                     "page": page,
                     "page_size": page_size,
                     "sort_type": 6,  # 按佣金比例排序
+                    "pid": self.pid,
                 }
             )
 
