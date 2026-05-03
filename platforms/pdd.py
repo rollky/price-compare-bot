@@ -9,7 +9,7 @@ from typing import Optional, List
 import httpx
 
 from models import ProductInfo, SearchResult, PlatformType, CouponInfo
-from config import PlatformConfig, get_settings
+from config import PlatformConfig, get_settings, PLATFORM_CONFIGS
 from platforms.base import PlatformAdapter
 from core.exceptions import APIError, ParseError, ProductNotFoundError, LinkConvertError
 from core.logger import logger
@@ -307,14 +307,17 @@ class PDDAdapter(PlatformAdapter):
                     # 降级返回原始链接
                     return original_link or f"https://mobile.yangkeduo.com/goods.html?goods_id={item_id}"
 
-            # 构建参数 - 直接使用普通接口
-            # goods_sign_list 是逗号分隔的商品签名列表
-            # custom_parameters 用于追踪订单来源，格式：{"uid":"用户ID"}
+            # 两段 PID 不支持转链接口，直接返回拼接的推广链接
+            # 拼接链接同样有效，包含 pid 和 goods_sign 即可追踪佣金
+            if self.pid and self.pid.count("_") == 1:
+                logger.info(f"两段 PID 不支持转链接口，使用拼接链接: {self.pid}")
+                return f"https://mobile.yangkeduo.com/duo_coupon_landing.html?goods_id={item_id}&pid={self.pid}&goods_sign={actual_goods_sign}"
+
+            # 三段 PID 才调用转链接口
             import json
             custom_params = json.dumps({"uid": "wechat_bot"})
-
             params = {
-                "goods_sign_list": f'["{actual_goods_sign}"]',  # JSON数组格式
+                "goods_sign_list": f'["{actual_goods_sign}"]',
                 "p_id": self.pid,
                 "custom_parameters": custom_params,
             }
@@ -405,3 +408,97 @@ class PDDAdapter(PlatformAdapter):
         except Exception as e:
             logger.warning(f"获取拼多多优惠券失败: {e}")
             return None
+
+    async def check_authority(self) -> dict:
+        """
+        查询 PID 是否已绑定备案
+        接口: pdd.ddk.member.authority.query
+        """
+        try:
+            import json
+            # pdd.ddk.member.authority.query 使用 pid（不是 p_id_list）
+            params = {
+                "pid": self.pid,
+                "custom_parameters": json.dumps({"uid": "wechat_bot"}),
+            }
+
+            result = await self._call_api(
+                "pdd.ddk.member.authority.query",
+                params
+            )
+
+            data = result.get("authority_query_response", {})
+            # 返回的是列表，取第一个
+            auth_list = data.get("authority_query_list", [])
+            if auth_list:
+                first = auth_list[0]
+                return {
+                    "bind": first.get("bind", 0),  # 1:已绑定, 0:未绑定
+                    "message": first.get("message", ""),
+                }
+            return {"bind": 0, "message": "无备案数据"}
+        except Exception as e:
+            logger.warning(f"查询备案状态失败: {e}")
+            return {"bind": 0, "message": str(e)}
+
+    async def generate_rp_url(self) -> str:
+        """
+        生成备案链接
+        接口: pdd.ddk.rp.prom.url.generate
+        channel_type=10 表示小程序/公众号等场景
+        """
+        try:
+            import json
+            # 使用 p_id_list 而不是 pid
+            params = {
+                "channel_type": 10,  # 10:小程序/公众号
+                "p_id_list": f'["{self.pid}"]'
+            }
+
+            result = await self._call_api(
+                "pdd.ddk.rp.prom.url.generate",
+                params
+            )
+
+            data = result.get("rp_prom_url_generate_response", {})
+            url_list = data.get("url_list", [])
+
+            if url_list:
+                return url_list[0].get("url", "")
+
+            return ""
+        except Exception as e:
+            logger.warning(f"生成备案链接失败: {e}")
+            return ""
+
+    async def generate_pid(self, number: int = 1, pid_name: str = "公众号推广位") -> list:
+        """
+        创建多多进宝推广位
+        接口: pdd.ddk.goods.pid.generate
+
+        Args:
+            number: 要生成的推广位数量（默认1）
+            pid_name: 推广位名称
+
+        Returns:
+            生成的PID列表
+        """
+        try:
+            params = {
+                "number": number,
+                "p_id_name": pid_name,
+            }
+
+            result = await self._call_api(
+                "pdd.ddk.goods.pid.generate",
+                params
+            )
+
+            data = result.get("p_id_generate_response", {})
+            pid_list = data.get("p_id_list", [])
+
+            logger.info(f"成功创建推广位: {pid_list}")
+            return pid_list
+        except Exception as e:
+            logger.warning(f"创建推广位失败: {e}")
+            return []
