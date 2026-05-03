@@ -39,6 +39,12 @@ class PDDAdapter(PlatformAdapter):
         # 3. MD5加密
         sorted_params = sorted(params.items())
         sign_str = self.client_secret + ''.join([f"{k}{v}" for k, v in sorted_params]) + self.client_secret
+
+        # 调试日志
+        logger.debug(f"拼多多签名参数: {dict(sorted_params)}")
+        logger.debug(f"拼多多签名字符串: {sign_str[:50]}...")
+        logger.debug(f"拼多多签名结果: {hashlib.md5(sign_str.encode()).hexdigest().upper()}")
+
         return hashlib.md5(sign_str.encode()).hexdigest().upper()
 
     async def _call_api(self, method: str, params: dict = None) -> dict:
@@ -64,6 +70,10 @@ class PDDAdapter(PlatformAdapter):
 
         # 生成签名
         base_params["sign"] = self._generate_sign(base_params)
+
+        # 打印完整请求参数（调试用）
+        import json
+        logger.info(f"拼多多API请求参数: {json.dumps(base_params, ensure_ascii=False)}")
 
         try:
             async with httpx.AsyncClient() as client:
@@ -297,28 +307,21 @@ class PDDAdapter(PlatformAdapter):
                     # 降级返回原始链接
                     return original_link or f"https://mobile.yangkeduo.com/goods.html?goods_id={item_id}"
 
-            # 构建参数
-            # goods_sign 需要 URL 编码
-            from urllib.parse import quote
+            # 构建参数 - 直接使用普通接口
+            # custom_parameters 用于追踪订单来源，格式：{"uid":"用户ID"}
+            import json
+            custom_params = json.dumps({"uid": "wechat_bot"})
+
             params = {
-                "goods_sign": quote(actual_goods_sign, safe=''),
+                "goods_sign": actual_goods_sign,
                 "p_id": self.pid,
-                "generate_schema_url": "true",
+                "custom_parameters": custom_params,
             }
 
-            # 尝试使用 oauth 版本的接口
-            try:
-                result = await self._call_api(
-                    "pdd.ddk.oauth.goods.prom.url.generate",
-                    params
-                )
-            except APIError as e:
-                # 如果 oauth 接口失败，尝试普通接口
-                logger.warning(f"OAuth转链接口失败，尝试普通接口: {e}")
-                result = await self._call_api(
-                    "pdd.ddk.goods.promotion.url.generate",
-                    params
-                )
+            result = await self._call_api(
+                "pdd.ddk.goods.promotion.url.generate",
+                params
+            )
 
             data = result.get("goods_promotion_url_generate_response", {})
             urls = data.get("goods_promotion_url_list", [])
