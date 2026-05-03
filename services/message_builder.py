@@ -222,8 +222,6 @@ class MessageBuilder:
                 "url": product.promotion_link or product.product_url,
             })
 
-        logger.info(f"构建多图文消息: {len(articles)} 条图文")
-
         return {
             "type": "news",
             "article_count": len(articles),
@@ -279,13 +277,15 @@ class MessageBuilder:
         lines = []
 
 
-        # 第一行：优惠券信息
-        if product.coupon and product.coupon.amount > 0:
-            lines.append(f"🎫优惠券¥{product.coupon.amount}")
-
-        # 第二行：原价 vs 现价
+        # 第一行：原价
         if product.original_price and product.original_price > product.current_price:
-            lines.append(f"💰原价¥{product.original_price} 🔥现价¥{product.current_price}")
+            lines.append(f"💰原价¥{product.original_price}")
+        else:
+            lines.append(f"💰原价¥{product.current_price}")
+
+        # 第二行：券后价/现价
+        if product.coupon and product.coupon.amount > 0:
+            lines.append(f"🔥券后价¥{product.final_price}")
         else:
             lines.append(f"🔥现价¥{product.current_price}")
 

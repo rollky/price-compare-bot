@@ -123,7 +123,6 @@ async def wechat_callback(request: Request):
                 content=response["content"]
             )
         elif response.get("type") == "news":
-            log.info(f"返回多图文消息: {len(response['articles'])} 条图文")
             return build_news_xml_response(
                 to_user=from_user,
                 from_user=to_user,
@@ -164,15 +163,12 @@ async def handle_text_message(content: str, from_user: str) -> dict:
     urls = URL_PATTERN.findall(content)
     if urls:
         # 有链接，优先处理第一个链接
-        log.info(f"从消息中提取到链接: {urls[0]}")
         return await handle_link_message(urls[0])
 
     # 3. 检查是否包含口令（如 ￥ABC123￥），只有没有URL时才处理口令
     if KoulingParser.is_kouling(content):
-        log.info(f"检测到口令: {content[:50]}")
         kouling_url = await extract_and_parse_kouling(content)
         if kouling_url:
-            log.info(f"口令解析成功: {kouling_url}")
             return await handle_link_message(kouling_url)
         else:
             # 口令无法解析，提示用户
@@ -238,21 +234,10 @@ async def handle_search_message(keyword: str) -> dict:
         if not all_products:
             return MessageBuilder.build_text_message(f'未找到 "{keyword}" 的相关商品')
 
-        # 取前3个商品构建多图文消息（当前仅支持拼多多）
+        # 取前3个商品，显示最优惠的（微信限制只能一条图文）
         top_products = all_products[:3]
-
-        log.info(f"搜索关键词 '{keyword}' 找到 {len(all_products)} 个商品，取前 {len(top_products)} 个")
-
-        if len(top_products) == 1:
-            log.info(f"只有1个商品，返回单图文")
-            return MessageBuilder.build_product_message(top_products[0])
-        else:
-            # 微信限制：被动回复只能显示一条图文
-            # 微信限制：被动回复只能一条图文
-            # 显示最优惠的商品
-            cheapest = min(top_products, key=lambda x: x.final_price)
-            log.info(f"找到 {len(top_products)} 个商品，显示最优惠的: {cheapest.title[:30]}")
-            return MessageBuilder.build_product_message(cheapest)
+        cheapest = min(top_products, key=lambda x: x.final_price)
+        return MessageBuilder.build_product_message(cheapest)
 
     except Exception as e:
         log.error(f"搜索失败: {e}")
@@ -332,7 +317,6 @@ def build_news_xml_response(to_user: str, from_user: str, articles: list) -> str
 <PicUrl><![CDATA[{article['pic_url']}]]></PicUrl>
 <Url><![CDATA[{article['url']}]]></Url>
 </item>"""
-        log.debug(f"图文{i+1}: title={article['title'][:20]}, desc_len={len(article['description'])}, pic={article['pic_url'][:30] if article['pic_url'] else 'empty'}, url={article['url'][:30] if article['url'] else 'empty'}")
 
     xml_template = f"""<xml>
 <ToUserName><![CDATA[{to_user}]]></ToUserName>
@@ -342,10 +326,5 @@ def build_news_xml_response(to_user: str, from_user: str, articles: list) -> str
 <ArticleCount>{len(articles)}</ArticleCount>
 <Articles>{items_xml}</Articles>
 </xml>"""
-
-    # 调试日志
-    log.info(f"返回XML: ArticleCount={len(articles)}, items_xml长度={len(items_xml)}")
-    # 输出完整XML用于检查
-    log.info(f"完整XML:\n{xml_template}")
 
     return PlainTextResponse(xml_template, media_type="application/xml")

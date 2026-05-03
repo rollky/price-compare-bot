@@ -73,7 +73,7 @@ class PDDAdapter(PlatformAdapter):
 
         # 打印完整请求参数（调试用）
         import json
-        logger.info(f"拼多多API请求参数: {json.dumps(base_params, ensure_ascii=False)}")
+        logger.debug(f"拼多多API请求参数: {json.dumps(base_params, ensure_ascii=False)}")
 
         try:
             async with httpx.AsyncClient() as client:
