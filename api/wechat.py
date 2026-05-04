@@ -13,6 +13,10 @@ from config import get_settings
 from services import LinkParser, PriceService, MessageBuilder
 from services.kouling_parser import extract_and_parse_kouling, KoulingParser
 from services.intent_classifier import IntentClassifier
+from config.content_config import (
+    match_special_command, get_random_wallpaper, get_random_riddle,
+    TRAFFIC_CARD_CONFIG, WallpaperItem, RiddleItem
+)
 from core.exceptions import APIError, ProductNotFoundError, ParseError
 from core.logger import logger as log
 
@@ -156,12 +160,27 @@ async def handle_text_message(content: str, from_user: str) -> dict:
 
     处理优先级：URL > 口令 > 关键词搜索
     """
-    # 1. 检查是否是命令
-    if content in ["帮助", "help", "菜单", "menu"]:
+    # 1. 检查是否是专属指令（优先级高）
+    special_cmd = match_special_command(content)
+
+    if special_cmd == "帮助":
         return MessageBuilder.build_help_message()
 
-    if content in ["热门", "今日热门", "hot", "排行榜"]:
+    if special_cmd == "热门":
         return await handle_hot_keywords_message()
+
+    if special_cmd == "壁纸":
+        return await handle_wallpaper_message()
+
+    if special_cmd == "猜谜":
+        return await handle_riddle_message(from_user)
+
+    # 处理"答案"命令（查看当前谜题答案）
+    if content in ["答案", "回答", "揭晓"]:
+        return await handle_riddle_answer(from_user)
+
+    if special_cmd == "流量卡":
+        return await handle_traffic_card_message()
 
     # 2. 提取消息中的URL（优先处理URL）
     urls = URL_PATTERN.findall(content)
@@ -203,6 +222,24 @@ async def handle_link_message(link: str) -> dict:
         platform, item_id, extra = await link_parser.parse(link)
 
         if not platform or not item_id:
+            # 检查是否是淘宝/京东链接（暂不支持）
+            link_lower = link.lower()
+            if "taobao.com" in link_lower or "tmall.com" in link_lower or "tb.cn" in link_lower:
+                return MessageBuilder.build_text_message(
+                    "🍑 淘宝链接暂时不支持直接查券\n\n"
+                    "你可以：\n"
+                    "1️⃣ 发送商品名称（如：iPhone 15）\n"
+                    "2️⃣ 等待淘宝接口接入（开发中）\n\n"
+                    "回复【热门】看看拼多多有什么优惠~"
+                )
+            elif "jd.com" in link_lower or "jingxi.com" in link_lower or "3.cn" in link_lower:
+                return MessageBuilder.build_text_message(
+                    "🐕 京东链接暂时不支持直接查券\n\n"
+                    "你可以：\n"
+                    "1️⃣ 发送商品名称（如：洗衣液）\n"
+                    "2️⃣ 等待京东接口接入（开发中）\n\n"
+                    "回复【热门】看看拼多多有什么优惠~"
+                )
             return MessageBuilder.build_text_message(
                 "无法识别该链接，请发送淘宝、京东或拼多多的商品链接"
             )
@@ -210,17 +247,29 @@ async def handle_link_message(link: str) -> dict:
         # 查询商品信息，传递 extra 参数（包含拼多多的 goods_sign）
         product = await price_service.get_product(platform, item_id, extra=extra)
 
-        # 构建回复消息
-        return MessageBuilder.build_product_message(product)
+        # 构建回复消息（带人设文案）
+        return MessageBuilder.build_product_message_with_persona(product)
 
     except ProductNotFoundError:
-        return MessageBuilder.build_text_message("该商品已下架或不存在")
+        return MessageBuilder.build_text_message(
+            "😔 这款宝贝商家今天没放内部券呢\n\n"
+            "没帮您省到钱，小芸送您一个脑筋急转弯开心一下吧！\n"
+            "回复【猜谜】马上开始~\n\n"
+            "或者点击右上角关注我的日常推文，每天都有新福利哦！"
+        )
     except APIError as e:
         log.error(f"查询商品失败: {e}")
-        return MessageBuilder.build_text_message("查询商品信息失败，请稍后重试")
+        return MessageBuilder.build_text_message(
+            "😔 查询失败了呢\n\n"
+            "可能网络有点问题，稍后再试一次吧~\n"
+            "或者回复【猜谜】先玩个游戏放松一下！"
+        )
     except Exception as e:
         log.error(f"处理链接失败: {e}")
-        return MessageBuilder.build_text_message("处理失败，请检查链接是否正确")
+        return MessageBuilder.build_text_message(
+            "处理失败，请检查链接是否正确\n\n"
+            "也可以发送商品名称让我帮你搜索哦~"
+        )
 
 
 async def handle_hot_keywords_message() -> dict:
@@ -235,18 +284,71 @@ async def handle_hot_keywords_message() -> dict:
         return MessageBuilder.build_text_message("获取热门关键词失败，请稍后重试")
 
 
+async def handle_wallpaper_message() -> dict:
+    """处理壁纸请求"""
+    wallpaper = get_random_wallpaper()
+    if wallpaper:
+        return MessageBuilder.build_wallpaper_message(wallpaper)
+    return MessageBuilder.build_text_message(
+        "🎨 壁纸库更新中...\n\n先试试其他功能吧！\n发送【热门】看看今天大家都在买什么~"
+    )
+
+
+async def handle_riddle_message(openid: str) -> dict:
+    """处理猜谜请求"""
+    from config.content_config import set_user_riddle
+    riddle = get_random_riddle()
+    if riddle:
+        # 记录用户当前的谜题
+        set_user_riddle(openid, riddle)
+        return MessageBuilder.build_riddle_message(riddle)
+    return MessageBuilder.build_text_message(
+        "🎯 题库更新中...\n\n先试试其他功能吧！\n发送【热门】看看今天大家都在买什么~"
+    )
+
+
+async def handle_riddle_answer(openid: str) -> dict:
+    """处理查看猜谜答案"""
+    from config.content_config import get_user_riddle
+    riddle = get_user_riddle(openid)
+    if riddle:
+        return MessageBuilder.build_riddle_answer_message(riddle)
+    return MessageBuilder.build_text_message(
+        "🤔 你还没有开始猜谜呢！\n\n"
+        "回复【猜谜】开始答题\n"
+        "回复【热门】查看优惠商品"
+    )
+
+
+async def handle_traffic_card_message() -> dict:
+    """处理流量卡推广"""
+    if not TRAFFIC_CARD_CONFIG["enabled"]:
+        return MessageBuilder.build_text_message(
+            "📱 超值流量卡即将上线！\n\n"
+            "正在和运营商对接中，敬请期待~\n"
+            "回复【热门】看看现在有什么优惠商品"
+        )
+    return MessageBuilder.build_traffic_card_message(TRAFFIC_CARD_CONFIG)
+
+
 async def handle_search_message(keyword: str) -> dict:
     """
     处理关键词搜索
 
-    在多个平台搜索商品并返回结果
+    返回文本+多条链接，让用户货比三家
     """
     try:
         # 搜索商品（多平台）
         results = await price_service.search(keyword, platform=None, page_size=3)
 
         if not results:
-            return MessageBuilder.build_text_message(f'未找到 "{keyword}" 的相关商品')
+            # 未找到商品，返回兜底话术+互动诱饵
+            return MessageBuilder.build_text_message(
+                f"😔 抱歉，关于【{keyword}】暂时没找到合适的优惠商品\n\n"
+                f"没帮您省到钱，小芸送您一个脑筋急转弯开心一下吧！\n"
+                f"回复【猜谜】马上开始~\n\n"
+                f"或者回复【热门】看看今天大家都在买什么！"
+            )
 
         # 合并所有平台的商品
         all_products = []
@@ -254,16 +356,26 @@ async def handle_search_message(keyword: str) -> dict:
             all_products.extend(result.products)
 
         if not all_products:
-            return MessageBuilder.build_text_message(f'未找到 "{keyword}" 的相关商品')
+            return MessageBuilder.build_text_message(
+                f"😔 关于【{keyword}】暂时没找到相关商品\n\n"
+                f"试试换个关键词？比如：\n"
+                f"• 具体型号（如：iPhone 15）\n"
+                f"• 品类+用途（如：儿童护眼台灯）\n\n"
+                f"回复【猜谜】先玩个游戏放松一下！"
+            )
 
-        # 取前3个商品，显示最优惠的（微信限制只能一条图文）
-        top_products = all_products[:3]
-        cheapest = min(top_products, key=lambda x: x.final_price)
-        return MessageBuilder.build_product_message(cheapest)
+        # 取前3个商品，按价格排序
+        top_products = sorted(all_products, key=lambda x: x.final_price)[:3]
+
+        # 返回文本+链接格式（让用户货比三家）
+        return MessageBuilder.build_search_comparison_message(keyword, top_products)
 
     except Exception as e:
         log.error(f"搜索失败: {e}")
-        return MessageBuilder.build_text_message("搜索失败，请稍后重试")
+        return MessageBuilder.build_text_message(
+            "😔 搜索时遇到了一点小麻烦\n\n"
+            "稍后再试一次，或者回复【猜谜】先玩个游戏~"
+        )
 
 
 async def handle_event_message(message: dict) -> dict:

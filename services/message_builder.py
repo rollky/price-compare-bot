@@ -3,9 +3,10 @@
 生成微信回复消息
 """
 from decimal import Decimal
-from typing import List, Optional
+from typing import List, Optional, Union
 
 from models import ProductInfo, PlatformType
+from config.content_config import WallpaperItem, RiddleItem
 from core.logger import logger
 
 
@@ -247,51 +248,53 @@ class MessageBuilder:
     @classmethod
     def build_help_message(cls) -> dict:
         """
-        构建帮助消息
-
-        Returns:
-            帮助文本消息
+        构建帮助消息（带人设）
         """
-        help_text = """🤖 省钱助手使用指南
+        help_text = """🤖 小芸生活助手
 
-【查价格】
-直接发送商品链接，自动查询优惠券
+嗨！我是小芸，你的省钱小帮手~ 🎀
 
-【搜商品】
-发送关键词，如：iPhone 15
+【💰 查优惠券】
+发送商品链接，自动查找隐藏优惠券
 
-【热门搜索】
-发送"热门"查看今日大家都在买什么
+【🔍 搜好物】
+发送商品名称，如：iPhone 15、洗衣液
 
-【支持平台】
-🔴 拼多多
+【🔥 热门榜单】
+发送"热门"看看今天大家都在买什么
 
-💡 提示：
-• 优惠券有时效，请尽快使用
-• 淘宝/京东接入中，敬请期待
+【🎨 每日福利】
+发送"壁纸"领取精美壁纸
+发送"猜谜"玩脑筋急转弯
 
-如有问题，请联系客服"""
+【📱 超值流量卡】
+发送"流量卡"查看大流量套餐
+
+💡 小贴士：
+• 淘宝/京东接口接入中，敬请期待
+• 优惠券数量有限，看到好价赶紧入手哦！
+
+有任何问题随时找我~ 😊"""
 
         return cls.build_text_message(help_text)
 
     @classmethod
     def build_hot_keywords_message(cls, keywords: list) -> dict:
         """
-        构建今日热门关键词消息
-
-        Args:
-            keywords: [(keyword, count), ...] 热门关键词列表
-
-        Returns:
-            文本消息字典
+        构建今日热门关键词消息（带人设）
         """
         if not keywords:
-            return cls.build_text_message("暂无热门搜索数据\n\n发送商品名称或链接开始搜索吧！")
+            return cls.build_text_message(
+                "🔥 今日热门榜单\n\n"
+                "暂无搜索数据，快来成为第一个！\n\n"
+                "发送商品名称（如：洗衣液）\n"
+                "或商品链接开始查券~"
+            )
 
-        lines = ["🔥 今日热门搜索TOP10\n"]
+        lines = ["🔥 今日大家都在买什么\n"]
+        lines.append("（实时更新，跟着买不踩坑）\n")
 
         for i, (keyword, count) in enumerate(keywords, 1):
-            # 根据排名添加不同emoji
             if i == 1:
                 emoji = "🥇"
             elif i == 2:
@@ -303,7 +306,8 @@ class MessageBuilder:
 
             lines.append(f"{emoji} {keyword}")
 
-        lines.append("\n💡 发送以上关键词或任意商品名称开始搜索")
+        lines.append("\n💡 发送以上关键词或任意商品名称")
+        lines.append("小芸帮你找隐藏优惠券~")
 
         return cls.build_text_message("\n".join(lines))
 
@@ -382,3 +386,134 @@ class MessageBuilder:
         elif num >= 1000:
             return f"{num / 1000:.1f}千"
         return str(num)
+
+    # ========== 模块二：人设包装消息构建 ==========
+
+    @classmethod
+    def build_product_message_with_persona(cls, product: ProductInfo) -> dict:
+        """
+        构建带人设文案的商品卡片
+        """
+        platform_icon = cls.PLATFORM_ICONS.get(product.platform, "🛒")
+        title = f"{platform_icon} {cls._truncate(product.title, 30)}"
+        description = cls._build_description(product)
+
+        # 在描述前添加人设话术
+        persona_intro = "✨ 小芸帮你找到隐藏优惠！\n\n"
+        description = persona_intro + description
+
+        return {
+            "type": "news",
+            "article_count": 1,
+            "articles": [{
+                "title": title,
+                "description": description,
+                "pic_url": product.product_image,
+                "url": product.promotion_link or product.product_url,
+            }]
+        }
+
+    @classmethod
+    def build_search_comparison_message(cls, keyword: str, products: list) -> dict:
+        """
+        构建搜索对比消息（文本+链接）
+        让用户货比三家
+        """
+        if not products:
+            return cls.build_text_message(f'未找到 "{keyword}" 的相关商品')
+
+        lines = [
+            f"🔍 关于【{keyword}】，帮你找到这几个高性价比的：\n"
+        ]
+
+        for i, p in enumerate(products, 1):
+            platform_icon = cls.PLATFORM_ICONS.get(p.platform, "🛒")
+            price_str = f"¥{p.final_price}"
+
+            # 标记最低价
+            if i == 1:
+                price_str += " ✅推荐"
+
+            # 标记优惠券
+            coupon_str = f"（券¥{p.coupon.amount}）" if p.coupon else ""
+
+            lines.append(f"{i}. {platform_icon} {cls._truncate(p.title, 20)}")
+            lines.append(f"   💰 {price_str}{coupon_str}")
+            lines.append(f"   👉 {p.promotion_link or p.product_url}")
+            lines.append("")
+
+        lines.append("点击链接查看详情，有问题随时找小芸~ 😊")
+
+        return cls.build_text_message("\n".join(lines))
+
+    @classmethod
+    def build_wallpaper_message(cls, wallpaper) -> dict:
+        """
+        构建壁纸消息
+        """
+        return {
+            "type": "news",
+            "article_count": 1,
+            "articles": [{
+                "title": f"🎨 {wallpaper.title}",
+                "description": f"{wallpaper.description}\n\n💕 每日更新精美壁纸\n👉点击领取原图",
+                "pic_url": wallpaper.image_url,
+                "url": wallpaper.pan_url,
+            }]
+        }
+
+    @classmethod
+    def build_riddle_message(cls, riddle) -> dict:
+        """
+        构建猜谜消息
+        """
+        text = f"""🎯 脑筋急转弯时间！
+
+{riddle.question}
+
+💡 提示：{riddle.hint if riddle.hint else "仔细想想~"}
+
+———
+
+🤔 想到答案了吗？
+回复"答案"查看正确答案
+回复"猜谜"再来一题
+回复"热门"看看优惠商品"""
+
+        return cls.build_text_message(text)
+
+    @classmethod
+    def build_riddle_answer_message(cls, riddle) -> dict:
+        """
+        构建猜谜答案消息
+        """
+        text = f"""✨ 揭晓答案！
+
+{riddle.question}
+
+🎉 正确答案：{riddle.answer}
+
+———
+
+还想继续玩吗？
+回复"猜谜"再来一题
+回复"壁纸"领取精美壁纸
+回复"热门"查看优惠商品"""
+
+        return cls.build_text_message(text)
+
+    @classmethod
+    def build_traffic_card_message(cls, config: dict) -> dict:
+        """
+        构建流量卡推广消息
+        """
+        return {
+            "type": "news",
+            "article_count": 1,
+            "articles": [{
+                "title": config["title"],
+                "description": config["description"],
+                "pic_url": config["image_url"],
+                "url": config["promotion_url"],
+            }]
+        }
