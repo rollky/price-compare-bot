@@ -70,10 +70,10 @@ RIDDLES: List[RiddleItem] = [
 
 # 流量卡推广配置
 TRAFFIC_CARD_CONFIG = {
-    "title": "📱 19元100G大流量卡",
-    "image_url": "",  # 流量卡推广图片
-    "promotion_url": "",  # 推广链接，待填写
-    "description": """💥 超值流量卡推荐
+    "title": "📱 超值流量卡",
+    "image_url": "https://img.huojukj.com/upload/20260428/RXCHnjDdzm/14882ef71d7ab081008d8fa8c84d5723.png",  # 流量卡推广图片
+    "promotion_url": "https://ka.huojukj.com/?u=112233",  # 推广链接，待填写
+    "description": """💥 点击卡片免费领取
 
 📱 月租：19元/月
 📶 流量：100G全国通用
@@ -84,7 +84,7 @@ TRAFFIC_CARD_CONFIG = {
 ✅ 全国可用
 
 🔥 限时办理，扫码申请 """,
-    "enabled": False  # 暂时未启用，等链接配置好后改为True
+    "enabled": True  # 暂时未启用，等链接配置好后改为True
 }
 
 

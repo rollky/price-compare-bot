@@ -369,8 +369,8 @@ async def handle_search_message(keyword: str) -> dict:
 
         # 返回文本+链接格式（让用户货比三家）
         result = MessageBuilder.build_search_comparison_message(keyword, top_products)
-        log.info(f"搜索返回内容类型: {result.get('type')}")
-        log.info(f"搜索返回内容预览: {result.get('content', '')[:150]}...")
+        # log.info(f"搜索返回内容类型: {result.get('type')}")
+        # log.info(f"搜索返回内容预览: {result.get('content', '')[:150]}...")
         return result
 
     except Exception as e:
