@@ -73,15 +73,16 @@ TRAFFIC_CARD_CONFIG = {
     "title": "📱 超值流量卡",
     "image_url": "https://img.huojukj.com/upload/20260428/RXCHnjDdzm/14882ef71d7ab081008d8fa8c84d5723.png",  # 流量卡推广图片
     "promotion_url": "https://ka.huojukj.com/?u=112233",  # 推广链接，待填写
-    "description": """💥 点击卡片免费领取
+    "description": """✅ 官方正规卡
+✅ 4G/5G通用
+✅ 全国可用
+    
+💥 点击卡片免费领取
 
 📱 月租：19元/月
 📶 流量：100G全国通用
 📞 通话：100分钟
 
-✅ 官方正规卡
-✅ 4G/5G通用
-✅ 全国可用
 
 🔥 限时办理，扫码申请 """,
     "enabled": True  # 暂时未启用，等链接配置好后改为True
