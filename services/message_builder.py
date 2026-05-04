@@ -438,11 +438,11 @@ class MessageBuilder:
 
             # 使用HTML超链接格式
             link_url = p.promotion_link or p.product_url or "#"
-            link_text = f"{platform_icon}查看详情"
 
             lines.append(f"{i}. {tag}{cls._truncate(p.title, 18)}")
             lines.append(f"   💰 {price_str}{coupon_str}")
-            lines.append(f'   <a href="{link_url}">{link_text}</a>')
+            # 微信支持的HTML链接格式
+            lines.append(f'   <a href="{link_url}">👉点击查看详情</a>')
             lines.append("")
 
         lines.append("💡 点击蓝字查看商品详情")

@@ -368,7 +368,10 @@ async def handle_search_message(keyword: str) -> dict:
         top_products = sorted(all_products, key=lambda x: x.final_price)[:3]
 
         # 返回文本+链接格式（让用户货比三家）
-        return MessageBuilder.build_search_comparison_message(keyword, top_products)
+        result = MessageBuilder.build_search_comparison_message(keyword, top_products)
+        log.info(f"搜索返回内容类型: {result.get('type')}")
+        log.info(f"搜索返回内容预览: {result.get('content', '')[:150]}...")
+        return result
 
     except Exception as e:
         log.error(f"搜索失败: {e}")
@@ -434,7 +437,7 @@ def build_xml_response(to_user: str, from_user: str, content: str) -> str:
 <Content><![CDATA[{content}]]></Content>
 </xml>"""
 
-    return PlainTextResponse(xml_template)
+    return PlainTextResponse(xml_template, media_type="application/xml")
 
 
 def build_news_xml_response(to_user: str, from_user: str, articles: list) -> str:
