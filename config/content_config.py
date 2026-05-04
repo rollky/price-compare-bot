@@ -70,7 +70,7 @@ RIDDLES: List[RiddleItem] = [
 
 # 流量卡推广配置
 TRAFFIC_CARD_CONFIG = {
-    "title": "📱 超值流量卡",
+    "title": "🔥运营商内部套餐！29元月租200G大流量，限时免费申请，手慢无！",
     "image_url": "https://img.huojukj.com/upload/20260428/RXCHnjDdzm/14882ef71d7ab081008d8fa8c84d5723.png",  # 流量卡推广图片
     "promotion_url": "https://ka.huojukj.com/?u=112233",  # 推广链接，待填写
     "description": """✅ 官方正规卡
