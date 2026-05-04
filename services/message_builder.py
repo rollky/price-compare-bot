@@ -416,14 +416,14 @@ class MessageBuilder:
     @classmethod
     def build_search_comparison_message(cls, keyword: str, products: list) -> dict:
         """
-        构建搜索对比消息（文本+链接）
+        构建搜索对比消息（文本+HTML链接）
         让用户货比三家
         """
         if not products:
             return cls.build_text_message(f'未找到 "{keyword}" 的相关商品')
 
         lines = [
-            f"🔍 关于【{keyword}】，帮你找到这几个高性价比的：\n"
+            f"🔍 关于【{keyword}】，小芸帮你找到这几个高性价比的：\n"
         ]
 
         for i, p in enumerate(products, 1):
@@ -431,20 +431,28 @@ class MessageBuilder:
             price_str = f"¥{p.final_price}"
 
             # 标记最低价
-            if i == 1:
-                price_str += " ✅推荐"
+            tag = "【推荐】" if i == 1 else ""
 
             # 标记优惠券
-            coupon_str = f"（券¥{p.coupon.amount}）" if p.coupon else ""
+            coupon_str = f" 省¥{p.coupon.amount}" if p.coupon else ""
 
-            lines.append(f"{i}. {platform_icon} {cls._truncate(p.title, 20)}")
+            # 使用HTML超链接格式
+            link_url = p.promotion_link or p.product_url or "#"
+            link_text = f"{platform_icon}查看详情"
+
+            lines.append(f"{i}. {tag}{cls._truncate(p.title, 18)}")
             lines.append(f"   💰 {price_str}{coupon_str}")
-            lines.append(f"   👉 {p.promotion_link or p.product_url}")
+            lines.append(f'   <a href="{link_url}">{link_text}</a>')
             lines.append("")
 
-        lines.append("点击链接查看详情，有问题随时找小芸~ 😊")
+        lines.append("💡 点击蓝字查看商品详情")
+        lines.append("有问题随时找小芸~ 😊")
 
-        return cls.build_text_message("\n".join(lines))
+        # 使用HTML格式返回（微信支持<a>标签）
+        return {
+            "type": "text",
+            "content": "\n".join(lines),
+        }
 
     @classmethod
     def build_wallpaper_message(cls, wallpaper) -> dict:
