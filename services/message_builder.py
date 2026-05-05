@@ -455,7 +455,7 @@ class MessageBuilder:
             "article_count": 1,
             "articles": [{
                 "title": f"🎨 {wallpaper.title}",
-                "description": f"{wallpaper.description}\n\n💕 每日更新精美壁纸\n👉点击领取原图",
+                "description": f"{wallpaper.description}\n💕 每日更新精美壁纸\n👉点击领取原图",
                 "pic_url": wallpaper.image_url,
                 "url": wallpaper.pan_url,
             }]
