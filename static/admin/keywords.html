@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>关键词管理后台</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: #f5f7fa;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 24px;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background: #1890ff;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #40a9ff;
+        }
+
+        .btn-danger {
+            background: #ff4d4f;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #ff7875;
+        }
+
+        .btn-success {
+            background: #52c41a;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #73d13d;
+        }
+
+        .btn-default {
+            background: #fff;
+            border: 1px solid #d9d9d9;
+            color: #666;
+        }
+
+        .btn-default:hover {
+            border-color: #1890ff;
+            color: #1890ff;
+        }
+
+        .card {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        }
+
+        .keyword-item {
+            border: 1px solid #e8e8e8;
+            border-radius: 6px;
+            padding: 16px;
+            margin-bottom: 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            transition: all 0.3s;
+        }
+
+        .keyword-item:hover {
+            border-color: #1890ff;
+            box-shadow: 0 2px 8px rgba(24,144,255,0.1);
+        }
+
+        .keyword-item.inactive {
+            opacity: 0.6;
+            background: #f5f5f5;
+        }
+
+        .keyword-info {
+            flex: 1;
+        }
+
+        .keyword-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 8px;
+        }
+
+        .command-type {
+            font-size: 16px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .badge {
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+
+        .badge-active {
+            background: #f6ffed;
+            color: #52c41a;
+            border: 1px solid #b7eb8f;
+        }
+
+        .badge-inactive {
+            background: #fff1f0;
+            color: #ff4d4f;
+            border: 1px solid #ffa39e;
+        }
+
+        .keywords-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin: 8px 0;
+        }
+
+        .keyword-tag {
+            background: #e6f7ff;
+            color: #1890ff;
+            padding: 4px 12px;
+            border-radius: 4px;
+            font-size: 13px;
+        }
+
+        .description {
+            color: #666;
+            font-size: 13px;
+            margin-top: 8px;
+        }
+
+        .keyword-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 8px;
+            padding: 24px;
+            width: 90%;
+            max-width: 500px;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 20px;
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-size: 14px;
+        }
+
+        .form-input, .form-textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #d9d9d9;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        .form-input:focus, .form-textarea:focus {
+            outline: none;
+            border-color: #1890ff;
+        }
+
+        .form-textarea {
+            min-height: 80px;
+            resize: vertical;
+        }
+
+        .form-hint {
+            font-size: 12px;
+            color: #999;
+            margin-top: 4px;
+        }
+
+        .modal-footer {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #999;
+        }
+
+        .empty-state-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+        }
+
+        .toast {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 12px 20px;
+            border-radius: 4px;
+            color: white;
+            z-index: 2000;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .toast.show {
+            opacity: 1;
+        }
+
+        .toast-success {
+            background: #52c41a;
+        }
+
+        .toast-error {
+            background: #ff4d4f;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #999;
+        }
+
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 44px;
+            height: 22px;
+        }
+
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 22px;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 2px;
+            bottom: 2px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+
+        input:checked + .slider {
+            background-color: #52c41a;
+        }
+
+        input:checked + .slider:before {
+            transform: translateX(22px);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎯 关键词管理</h1>
+            <button class="btn btn-primary" onclick="openModal()">+ 新增关键词</button>
+        </div>
+
+        <div class="card">
+            <div id="keywordList">
+                <div class="loading">加载中...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal -->
+    <div class="modal" id="modal">
+        <div class="modal-content">
+            <div class="modal-header" id="modalTitle">新增关键词</div>
+            <form id="keywordForm">
+                <input type="hidden" id="itemId">
+                <div class="form-group">
+                    <label class="form-label">指令类型 *</label>
+                    <input type="text" class="form-input" id="commandType" placeholder="如：壁纸、猜谜" required>
+                    <div class="form-hint">用户触发该功能的分类名称</div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">关键词列表 *</label>
+                    <textarea class="form-textarea" id="keywords" placeholder="每行一个关键词" required></textarea>
+                    <div class="form-hint">每行输入一个关键词，用户发送这些词会触发对应功能</div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">描述</label>
+                    <input type="text" class="form-input" id="description" placeholder="该功能的简要描述">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">优先级</label>
+                    <input type="number" class="form-input" id="priority" value="0" min="0" max="100">
+                    <div class="form-hint">数字越大优先级越高（0-100）</div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">
+                        <input type="checkbox" id="isActive" checked> 启用
+                    </label>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-default" onclick="closeModal()">取消</button>
+                    <button type="submit" class="btn btn-primary">保存</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script>
+        const API_BASE = '/admin';
+        let keywordsData = [];
+
+        // 加载关键词列表
+        async function loadKeywords() {
+            try {
+                const response = await fetch(`${API_BASE}/keywords?include_inactive=true`);
+                const data = await response.json();
+                keywordsData = data.items || [];
+                renderKeywords();
+            } catch (error) {
+                showToast('加载失败：' + error.message, 'error');
+            }
+        }
+
+        // 渲染关键词列表
+        function renderKeywords() {
+            const container = document.getElementById('keywordList');
+            if (keywordsData.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">📝</div>
+                        <p>暂无关键词，点击右上角添加</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = keywordsData.map(item => `
+                <div class="keyword-item ${item.is_active ? '' : 'inactive'}">
+                    <div class="keyword-info">
+                        <div class="keyword-header">
+                            <span class="command-type">${item.command_type}</span>
+                            <span class="badge ${item.is_active ? 'badge-active' : 'badge-inactive'}">
+                                ${item.is_active ? '启用' : '禁用'}
+                            </span>
+                            <span style="color: #999; font-size: 12px;">优先级: ${item.priority}</span>
+                        </div>
+                        <div class="keywords-list">
+                            ${item.keywords.map(kw => `<span class="keyword-tag">${kw}</span>`).join('')}
+                        </div>
+                        ${item.description ? `<div class="description">${item.description}</div>` : ''}
+                    </div>
+                    <div class="keyword-actions">
+                        <button class="btn btn-default" onclick="editKeyword(${item.id})">编辑</button>
+                        <button class="btn btn-danger" onclick="deleteKeyword(${item.id})">删除</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // 打开弹窗
+        function openModal(isEdit = false) {
+            document.getElementById('modal').classList.add('active');
+            document.getElementById('modalTitle').textContent = isEdit ? '编辑关键词' : '新增关键词';
+            if (!isEdit) {
+                document.getElementById('keywordForm').reset();
+                document.getElementById('itemId').value = '';
+            }
+        }
+
+        // 关闭弹窗
+        function closeModal() {
+            document.getElementById('modal').classList.remove('active');
+        }
+
+        // 编辑关键词
+        function editKeyword(id) {
+            const item = keywordsData.find(k => k.id === id);
+            if (!item) return;
+
+            document.getElementById('itemId').value = item.id;
+            document.getElementById('commandType').value = item.command_type;
+            document.getElementById('keywords').value = item.keywords.join('\n');
+            document.getElementById('description').value = item.description || '';
+            document.getElementById('priority').value = item.priority;
+            document.getElementById('isActive').checked = item.is_active;
+
+            openModal(true);
+        }
+
+        // 删除关键词
+        async function deleteKeyword(id) {
+            if (!confirm('确定要删除这个关键词吗？')) return;
+
+            try {
+                const response = await fetch(`${API_BASE}/keywords/${id}`, {
+                    method: 'DELETE'
+                });
+                const data = await response.json();
+
+                if (data.code === 0) {
+                    showToast('删除成功');
+                    loadKeywords();
+                } else {
+                    showToast(data.message || '删除失败', 'error');
+                }
+            } catch (error) {
+                showToast('删除失败：' + error.message, 'error');
+            }
+        }
+
+        // 提交表单
+        document.getElementById('keywordForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const id = document.getElementById('itemId').value;
+            const commandType = document.getElementById('commandType').value.trim();
+            const keywordsText = document.getElementById('keywords').value.trim();
+            const description = document.getElementById('description').value.trim();
+            const priority = parseInt(document.getElementById('priority').value) || 0;
+            const isActive = document.getElementById('isActive').checked;
+
+            // 处理关键词列表
+            const keywords = keywordsText
+                .split('\n')
+                .map(k => k.trim())
+                .filter(k => k);
+
+            if (keywords.length === 0) {
+                showToast('请至少输入一个关键词', 'error');
+                return;
+            }
+
+            const payload = {
+                command_type: commandType,
+                keywords: keywords,
+                description: description,
+                priority: priority,
+                is_active: isActive
+            };
+
+            try {
+                let response;
+                if (id) {
+                    // 更新
+                    response = await fetch(`${API_BASE}/keywords/${id}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                } else {
+                    // 创建
+                    response = await fetch(`${API_BASE}/keywords`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                }
+
+                const data = await response.json();
+
+                if (data.code === 0) {
+                    showToast(id ? '更新成功' : '创建成功');
+                    closeModal();
+                    loadKeywords();
+                } else {
+                    showToast(data.message || '操作失败', 'error');
+                }
+            } catch (error) {
+                showToast('操作失败：' + error.message, 'error');
+            }
+        });
+
+        // 显示提示
+        function showToast(message, type = 'success') {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.className = `toast toast-${type} show`;
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3000);
+        }
+
+        // 点击弹窗外部关闭
+        document.getElementById('modal').addEventListener('click', (e) => {
+            if (e.target.id === 'modal') {
+                closeModal();
+            }
+        });
+
+        // 初始化
+        loadKeywords();
+    </script>
+</body>
+</html>

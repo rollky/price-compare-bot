@@ -5,9 +5,10 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 
 from config import get_settings
-from api import wechat_router
+from api import wechat_router, admin_router
 from services.price_service import PriceService
 from core.logger import logger
 
@@ -59,6 +60,10 @@ price_service = PriceService()
 
 # 注册路由
 app.include_router(wechat_router)
+app.include_router(admin_router)
+
+# 静态文件（管理后台）
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 
 @app.get("/")
