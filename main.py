@@ -6,11 +6,23 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.middleware.base import BaseHTTPMiddleware
 
 from config import get_settings
 from api import wechat_router, admin_router
 from services.price_service import PriceService
 from core.logger import logger
+
+
+class NoCacheMiddleware(BaseHTTPMiddleware):
+    """禁用静态文件缓存的中间件"""
+    async def dispatch(self, request, call_next):
+        response = await call_next(request)
+        if request.url.path.startswith("/static"):
+            response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+            response.headers["Pragma"] = "no-cache"
+            response.headers["Expires"] = "0"
+        return response
 
 
 @asynccontextmanager
@@ -57,13 +69,29 @@ app = FastAPI(
 # 价格服务实例
 price_service = PriceService()
 
+# 添加禁用缓存中间件（必须在静态文件之前）
+app.add_middleware(NoCacheMiddleware)
 
 # 注册路由
 app.include_router(wechat_router)
 app.include_router(admin_router)
 
 # 静态文件（管理后台）
-app.mount("/static", StaticFiles(directory="static"), name="static")
+from starlette.staticfiles import StaticFiles as BaseStaticFiles
+
+class NoCacheStaticFiles(BaseStaticFiles):
+    """禁用缓存的静态文件"""
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    async def get_response(self, path: str, scope):
+        response = await super().get_response(path, scope)
+        response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate, max-age=0"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "-1"
+        return response
+
+app.mount("/static", NoCacheStaticFiles(directory="static"), name="static")
 
 
 @app.get("/")

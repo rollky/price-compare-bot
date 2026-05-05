@@ -61,6 +61,9 @@ class Settings(BaseSettings):
     # 日志配置
     LOG_LEVEL: str = "INFO"
 
+    # 管理后台配置
+    ADMIN_PASSWORD: str = "admin123"  # 管理后台密码，生产环境请修改
+
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"

@@ -348,6 +348,22 @@
         </div>
     </div>
 
+    <!-- Login Modal -->
+    <div class="modal" id="loginModal">
+        <div class="modal-content" style="max-width: 400px;">
+            <div class="modal-header">🔐 管理后台登录</div>
+            <form id="loginForm">
+                <div class="form-group">
+                    <label class="form-label">密码</label>
+                    <input type="password" class="form-input" id="loginPassword" placeholder="请输入管理密码" required>
+                </div>
+                <div class="modal-footer" style="justify-content: center;">
+                    <button type="submit" class="btn btn-primary" style="width: 100%;">登录</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- Modal -->
     <div class="modal" id="modal">
         <div class="modal-content">
@@ -410,11 +426,76 @@
     <script>
         const API_BASE = '/admin';
         let keywordsData = [];
+        let authHeader = '';
+
+        // 显示登录弹窗
+        function showLoginModal() {
+            document.getElementById('loginModal').classList.add('active');
+            document.getElementById('loginPassword').value = '';
+            document.getElementById('loginPassword').focus();
+        }
+
+        // 关闭登录弹窗
+        function closeLoginModal() {
+            document.getElementById('loginModal').classList.remove('active');
+        }
+
+        // 登录
+        async function doLogin() {
+            const password = document.getElementById('loginPassword').value;
+            if (!password) {
+                showToast('请输入密码', 'error');
+                return;
+            }
+
+            // 生成 Basic Auth 头
+            authHeader = 'Basic ' + btoa('admin:' + password);
+
+            // 测试登录
+            try {
+                const response = await fetch(`${API_BASE}/keywords`, {
+                    headers: { 'Authorization': authHeader }
+                });
+
+                if (response.status === 401) {
+                    showToast('密码错误', 'error');
+                    authHeader = '';
+                    return;
+                }
+
+                if (response.ok) {
+                    closeLoginModal();
+                    loadKeywords();
+                    showToast('登录成功');
+                }
+            } catch (error) {
+                showToast('登录失败：' + error.message, 'error');
+            }
+        }
+
+        // 处理登录表单提交
+        document.getElementById('loginForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            doLogin();
+        });
 
         // 加载关键词列表
         async function loadKeywords() {
+            if (!authHeader) {
+                showLoginModal();
+                return;
+            }
+
             try {
-                const response = await fetch(`${API_BASE}/keywords?include_inactive=true`);
+                const response = await fetch(`${API_BASE}/keywords?include_inactive=true`, {
+                    headers: { 'Authorization': authHeader }
+                });
+
+                if (response.status === 401) {
+                    showLoginModal();
+                    return;
+                }
+
                 const data = await response.json();
                 keywordsData = data.items || [];
                 renderKeywords();
@@ -536,8 +617,15 @@
 
             try {
                 const response = await fetch(`${API_BASE}/keywords/${id}`, {
-                    method: 'DELETE'
+                    method: 'DELETE',
+                    headers: { 'Authorization': authHeader }
                 });
+
+                if (response.status === 401) {
+                    showLoginModal();
+                    return;
+                }
+
                 const data = await response.json();
 
                 if (data.code === 0) {
@@ -587,20 +675,30 @@
 
             try {
                 let response;
+                const headers = {
+                    'Content-Type': 'application/json',
+                    'Authorization': authHeader
+                };
+
                 if (id) {
                     // 更新
                     response = await fetch(`${API_BASE}/keywords/${id}`, {
                         method: 'PUT',
-                        headers: { 'Content-Type': 'application/json' },
+                        headers: headers,
                         body: JSON.stringify(payload)
                     });
                 } else {
                     // 创建
                     response = await fetch(`${API_BASE}/keywords`, {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
+                        headers: headers,
                         body: JSON.stringify(payload)
                     });
+                }
+
+                if (response.status === 401) {
+                    showLoginModal();
+                    return;
                 }
 
                 const data = await response.json();
@@ -634,8 +732,8 @@
             }
         });
 
-        // 初始化
-        loadKeywords();
+        // 初始化 - 显示登录框
+        showLoginModal();
     </script>
 </body>
 </html>
