@@ -374,6 +374,25 @@
                     <div class="form-hint">数字越大优先级越高（0-100）</div>
                 </div>
                 <div class="form-group">
+                    <label class="form-label">回复类型 *</label>
+                    <select class="form-input" id="replyType" required>
+                        <option value="text">纯文本</option>
+                        <option value="news">图文消息</option>
+                        <option value="system">系统内置（壁纸/猜谜等）</option>
+                    </select>
+                    <div class="form-hint">选择回复内容的类型</div>
+                </div>
+
+                <div class="form-group" id="replyContentGroup">
+                    <label class="form-label">回复内容 *</label>
+                    <textarea class="form-textarea" id="replyContent" placeholder="请输入回复内容"></textarea>
+                    <div class="form-hint" id="replyHint">
+                        纯文本：直接输入文字内容<br>
+                        图文消息：输入JSON格式 {"title":"标题", "description":"描述", "pic_url":"图片URL", "url":"链接"}
+                    </div>
+                </div>
+
+                <div class="form-group">
                     <label class="form-label">
                         <input type="checkbox" id="isActive" checked> 启用
                     </label>
@@ -404,6 +423,16 @@
             }
         }
 
+        // 获取回复类型显示名称
+        function getReplyTypeName(type) {
+            const names = {
+                'text': '纯文本',
+                'news': '图文消息',
+                'system': '系统内置'
+            };
+            return names[type] || type;
+        }
+
         // 渲染关键词列表
         function renderKeywords() {
             const container = document.getElementById('keywordList');
@@ -426,6 +455,9 @@
                                 ${item.is_active ? '启用' : '禁用'}
                             </span>
                             <span style="color: #999; font-size: 12px;">优先级: ${item.priority}</span>
+                            <span style="color: #1890ff; font-size: 12px; margin-left: 8px;">
+                                回复: ${getReplyTypeName(item.reply_type)}
+                            </span>
                         </div>
                         <div class="keywords-list">
                             ${item.keywords.map(kw => `<span class="keyword-tag">${kw}</span>`).join('')}
@@ -447,6 +479,9 @@
             if (!isEdit) {
                 document.getElementById('keywordForm').reset();
                 document.getElementById('itemId').value = '';
+                document.getElementById('replyType').value = 'text';
+                document.getElementById('replyContent').value = '';
+                updateReplyHint('text');
             }
         }
 
@@ -465,10 +500,35 @@
             document.getElementById('keywords').value = item.keywords.join('\n');
             document.getElementById('description').value = item.description || '';
             document.getElementById('priority').value = item.priority;
+            document.getElementById('replyType').value = item.reply_type || 'text';
+            document.getElementById('replyContent').value = item.reply_content || '';
             document.getElementById('isActive').checked = item.is_active;
 
+            updateReplyHint(item.reply_type || 'text');
             openModal(true);
         }
+
+        // 更新回复内容提示
+        function updateReplyHint(type) {
+            const contentGroup = document.getElementById('replyContentGroup');
+            const hint = document.getElementById('replyHint');
+
+            if (type === 'system') {
+                contentGroup.style.display = 'none';
+            } else {
+                contentGroup.style.display = 'block';
+                if (type === 'text') {
+                    hint.innerHTML = '直接输入文字内容，支持换行';
+                } else if (type === 'news') {
+                    hint.innerHTML = '输入JSON格式：<br>{"title":"标题", "description":"描述", "pic_url":"图片URL", "url":"链接"}<br><br>多图文用数组：[{...}, {...}]';
+                }
+            }
+        }
+
+        // 监听回复类型变化
+        document.getElementById('replyType').addEventListener('change', function() {
+            updateReplyHint(this.value);
+        });
 
         // 删除关键词
         async function deleteKeyword(id) {
@@ -500,6 +560,8 @@
             const keywordsText = document.getElementById('keywords').value.trim();
             const description = document.getElementById('description').value.trim();
             const priority = parseInt(document.getElementById('priority').value) || 0;
+            const replyType = document.getElementById('replyType').value;
+            const replyContent = document.getElementById('replyContent').value.trim();
             const isActive = document.getElementById('isActive').checked;
 
             // 处理关键词列表
@@ -518,6 +580,8 @@
                 keywords: keywords,
                 description: description,
                 priority: priority,
+                reply_type: replyType,
+                reply_content: replyType === 'system' ? '' : replyContent,
                 is_active: isActive
             };
 

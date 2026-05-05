@@ -17,6 +17,7 @@ from config.content_config import (
     match_special_command, get_random_wallpaper, get_random_riddle,
     TRAFFIC_CARD_CONFIG, WallpaperItem, RiddleItem
 )
+from models.keyword import get_keyword_manager
 from core.exceptions import APIError, ProductNotFoundError, ParseError
 from core.logger import logger as log
 
@@ -158,29 +159,41 @@ async def handle_text_message(content: str, from_user: str) -> dict:
     """
     处理文本消息
 
-    处理优先级：URL > 口令 > 关键词搜索
+    处理优先级：专属指令（数据库配置）> URL > 口令 > 关键词搜索
     """
     # 1. 检查是否是专属指令（优先级高）
     special_cmd = match_special_command(content)
 
-    if special_cmd == "帮助":
-        return MessageBuilder.build_help_message()
+    if special_cmd:
+        # 1.1 尝试从数据库配置获取回复
+        try:
+            manager = get_keyword_manager()
+            reply = manager.build_reply_message(special_cmd)
+            if reply:
+                # 数据库配置了回复内容，直接返回
+                return reply
+        except Exception as e:
+            log.warning(f"从数据库获取回复失败: {e}")
 
-    if special_cmd == "热门":
-        return await handle_hot_keywords_message()
+        # 1.2 如果是system类型或未配置，走原有逻辑
+        if special_cmd == "帮助":
+            return MessageBuilder.build_help_message()
 
-    if special_cmd == "壁纸":
-        return await handle_wallpaper_message()
+        if special_cmd == "热门":
+            return await handle_hot_keywords_message()
 
-    if special_cmd == "猜谜":
-        return await handle_riddle_message(from_user)
+        if special_cmd == "壁纸":
+            return await handle_wallpaper_message()
+
+        if special_cmd == "猜谜":
+            return await handle_riddle_message(from_user)
+
+        if special_cmd == "流量卡":
+            return await handle_traffic_card_message()
 
     # 处理"答案"命令（查看当前谜题答案）
     if content in ["答案", "回答", "揭晓"]:
         return await handle_riddle_answer(from_user)
-
-    if special_cmd == "流量卡":
-        return await handle_traffic_card_message()
 
     # 2. 提取消息中的URL（优先处理URL）
     urls = URL_PATTERN.findall(content)

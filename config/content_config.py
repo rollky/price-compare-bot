@@ -147,14 +147,20 @@ def get_random_wallpaper() -> Optional[WallpaperItem]:
                 preview_url = "https://www.bing.com" + image.get("url", "")
 
                 # 清理版权信息中的 HTML 标签
-                copyright_text = image.get("copyright", "Bing每日精选")
-                copyright_clean = re.sub(r'<[^>]+>', '', copyright_text)
+                # copyright_text = image.get("copyright", "Bing每日精选")
+                # copyright_clean = re.sub(r'<[^>]+>', '', copyright_text)
+                image_title = image.get("title", "")
 
                 return WallpaperItem(
-                    title="🏞️ Bing每日精选壁纸",
+                    title=" 每日精选壁纸",
                     image_url=preview_url,
                     pan_url=mobile_url,
-                    description=f"{copyright_clean}\n🌍 全球风景每日更新\n📱 竖屏高清，点击领取原图"
+                    # description=f"{copyright_clean}\n🌍 全球风景每日更新\n📱 竖屏高清，点击领取原图"
+                    description=f""""
+                    🌍 全球风景\n
+                    ✨ {image_title}\n
+                    📱 点击领取原图"
+                    """
                 )
         except Exception as e:
             logger.warning(f"从Bing获取壁纸失败: {e}")

@@ -19,6 +19,8 @@ class KeywordItem:
     description: str = ""  # 描述
     priority: int = 0  # 优先级，数字越大越优先
     is_active: bool = True  # 是否启用
+    reply_type: str = "text"  # 回复类型: text/news/system
+    reply_content: str = ""  # 回复内容（JSON格式存储）
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
 
@@ -57,10 +59,22 @@ class KeywordManager:
                 description TEXT,
                 priority INTEGER DEFAULT 0,
                 is_active INTEGER DEFAULT 1,
+                reply_type TEXT DEFAULT 'text',
+                reply_content TEXT,
                 created_at TEXT,
                 updated_at TEXT
             )
         ''')
+
+        # 迁移：添加新字段（如果旧表没有）
+        try:
+            cursor.execute('ALTER TABLE keywords ADD COLUMN reply_type TEXT DEFAULT "text"')
+        except:
+            pass
+        try:
+            cursor.execute('ALTER TABLE keywords ADD COLUMN reply_content TEXT')
+        except:
+            pass
 
         conn.commit()
         conn.close()
@@ -74,27 +88,37 @@ class KeywordManager:
             "壁纸": {
                 "keywords": ["壁纸", "wallpaper", "背景图", "手机壁纸"],
                 "description": "获取精美手机壁纸",
-                "priority": 10
+                "priority": 10,
+                "reply_type": "system",  # system表示走系统内置逻辑
+                "reply_content": ""
             },
             "猜谜": {
                 "keywords": ["猜谜", "脑筋急转弯", "谜语", "答题", "riddle"],
                 "description": "趣味猜谜游戏",
-                "priority": 10
+                "priority": 10,
+                "reply_type": "system",
+                "reply_content": ""
             },
             "流量卡": {
                 "keywords": ["流量卡", "流量", "手机卡", "电话卡", "大流量"],
                 "description": "超值流量卡推广",
-                "priority": 5
+                "priority": 5,
+                "reply_type": "system",
+                "reply_content": ""
             },
             "热门": {
                 "keywords": ["热门", "今日热门", "hot", "排行榜"],
                 "description": "查看今日热门搜索",
-                "priority": 10
+                "priority": 10,
+                "reply_type": "system",
+                "reply_content": ""
             },
             "帮助": {
                 "keywords": ["帮助", "help", "菜单", "menu", "怎么用"],
                 "description": "查看使用帮助",
-                "priority": 20
+                "priority": 20,
+                "reply_type": "system",
+                "reply_content": ""
             },
         }
 
@@ -104,11 +128,14 @@ class KeywordManager:
                     command_type=cmd_type,
                     keywords=data["keywords"],
                     description=data["description"],
-                    priority=data["priority"]
+                    priority=data["priority"],
+                    reply_type=data["reply_type"],
+                    reply_content=data["reply_content"]
                 )
 
     def create(self, command_type: str, keywords: List[str],
-               description: str = "", priority: int = 0) -> KeywordItem:
+               description: str = "", priority: int = 0,
+               reply_type: str = "text", reply_content: str = "") -> KeywordItem:
         """创建关键词"""
         import sqlite3
 
@@ -117,10 +144,10 @@ class KeywordManager:
 
         now = datetime.now().isoformat()
         cursor.execute('''
-            INSERT INTO keywords (command_type, keywords, description, priority, is_active, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO keywords (command_type, keywords, description, priority, is_active, reply_type, reply_content, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         ''', (command_type, json.dumps(keywords, ensure_ascii=False),
-              description, priority, 1, now, now))
+              description, priority, 1, reply_type, reply_content, now, now))
 
         item_id = cursor.lastrowid
         conn.commit()
@@ -180,7 +207,7 @@ class KeywordManager:
         """更新关键词"""
         import sqlite3
 
-        allowed_fields = ['command_type', 'keywords', 'description', 'priority', 'is_active']
+        allowed_fields = ['command_type', 'keywords', 'description', 'priority', 'is_active', 'reply_type', 'reply_content']
         updates = []
         values = []
 
@@ -255,17 +282,65 @@ class KeywordManager:
                     return item.command_type
         return None
 
+    def build_reply_message(self, command_type: str) -> Optional[dict]:
+        """
+        根据配置构建回复消息
+        返回微信消息格式的字典，或None表示需要走系统逻辑
+        """
+        item = self.get_by_type(command_type)
+        if not item:
+            return None
+
+        # system类型表示走系统内置逻辑
+        if item.reply_type == 'system' or not item.reply_content:
+            return None
+
+        # 文本消息
+        if item.reply_type == 'text':
+            return {
+                "type": "text",
+                "content": item.reply_content
+            }
+
+        # 图文消息
+        if item.reply_type == 'news':
+            try:
+                content = json.loads(item.reply_content)
+                # 支持单图文或多图文
+                if isinstance(content, list):
+                    return {
+                        "type": "news",
+                        "article_count": len(content),
+                        "articles": content
+                    }
+                else:
+                    return {
+                        "type": "news",
+                        "article_count": 1,
+                        "articles": [content]
+                    }
+            except json.JSONDecodeError:
+                logger.error(f"图文消息格式错误: {command_type}")
+                return {
+                    "type": "text",
+                    "content": "配置错误，请联系管理员"
+                }
+
+        return None
+
     def _row_to_item(self, row) -> KeywordItem:
         """数据库行转对象"""
         return KeywordItem(
             id=row[0],
             command_type=row[1],
             keywords=json.loads(row[2]),
-            description=row[3],
-            priority=row[4],
-            is_active=bool(row[5]),
-            created_at=row[6],
-            updated_at=row[7]
+            description=row[3] if row[3] else "",
+            priority=row[4] if row[4] else 0,
+            is_active=bool(row[5]) if row[5] else True,
+            reply_type=row[6] if len(row) > 6 and row[6] else "text",
+            reply_content=row[7] if len(row) > 7 and row[7] else "",
+            created_at=row[8] if len(row) > 8 else None,
+            updated_at=row[9] if len(row) > 9 else None
         )
 
 

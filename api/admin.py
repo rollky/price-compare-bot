@@ -19,6 +19,8 @@ class KeywordCreate(BaseModel):
     keywords: List[str]
     description: str = ""
     priority: int = 0
+    reply_type: str = "text"  # text/news/system
+    reply_content: str = ""
 
 
 class KeywordUpdate(BaseModel):
@@ -27,6 +29,8 @@ class KeywordUpdate(BaseModel):
     description: Optional[str] = None
     priority: Optional[int] = None
     is_active: Optional[bool] = None
+    reply_type: Optional[str] = None
+    reply_content: Optional[str] = None
 
 
 class KeywordResponse(BaseModel):
@@ -36,6 +40,8 @@ class KeywordResponse(BaseModel):
     description: str
     priority: int
     is_active: bool
+    reply_type: str
+    reply_content: str
     created_at: Optional[str]
     updated_at: Optional[str]
 
@@ -70,6 +76,8 @@ async def get_keywords(
             description=item.description,
             priority=item.priority,
             is_active=item.is_active,
+            reply_type=item.reply_type,
+            reply_content=item.reply_content,
             created_at=item.created_at,
             updated_at=item.updated_at
         ) for item in items]
@@ -92,6 +100,8 @@ async def get_keyword(item_id: int):
         description=item.description,
         priority=item.priority,
         is_active=item.is_active,
+        reply_type=item.reply_type,
+        reply_content=item.reply_content,
         created_at=item.created_at,
         updated_at=item.updated_at
     )
@@ -111,7 +121,9 @@ async def create_keyword(data: KeywordCreate):
         command_type=data.command_type,
         keywords=data.keywords,
         description=data.description,
-        priority=data.priority
+        priority=data.priority,
+        reply_type=data.reply_type,
+        reply_content=data.reply_content
     )
 
     return APIResponse(
