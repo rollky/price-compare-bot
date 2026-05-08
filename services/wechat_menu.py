@@ -112,11 +112,17 @@ class WechatMenuManager:
             )
             result = response.json()
 
-            if result.get("errcode") == 0:
-                logger.info("创建菜单成功")
+            errcode = result.get("errcode")
+            if errcode == 0:
+                logger.info("✅ 创建菜单成功")
                 return True
+            elif errcode == 48001:
+                # API 未授权，通常是个人订阅号没有权限
+                logger.warning("⚠️  创建菜单失败: 公众号没有自定义菜单权限")
+                logger.warning("   请登录微信公众平台(mp.weixin.qq.com)手动创建菜单")
+                return False
             else:
-                logger.error(f"创建菜单失败: {result}")
+                logger.error(f"❌ 创建菜单失败: {result}")
                 return False
         except Exception as e:
             logger.error(f"创建菜单异常: {e}")

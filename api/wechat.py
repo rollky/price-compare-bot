@@ -293,6 +293,7 @@ async def handle_hot_keywords_message() -> dict:
     """
     try:
         hot_keywords = await price_service.cache.get_hot_keywords(n=10)
+        log.info(f"获取热门关键词结果: {hot_keywords}")
         return MessageBuilder.build_hot_keywords_message(hot_keywords)
     except Exception as e:
         log.error(f"获取热门关键词失败: {e}")

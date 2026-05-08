@@ -233,6 +233,7 @@ class CacheService:
             keyword: 搜索关键词
         """
         if not self._redis or not keyword:
+            logger.debug(f"跳过记录关键词: redis={self._redis is not None}, keyword={keyword}")
             return
 
         try:
@@ -240,12 +241,15 @@ class CacheService:
             from datetime import datetime
             today = datetime.now().strftime("%Y%m%d")
             key = f"hot_keywords:{today}"
+            keyword_clean = keyword.lower().strip()
 
             # 使用ZINCRBY增加计数（自动去重并计数）
-            await self._redis.zincrby(key, 1, keyword.lower().strip())
+            new_score = await self._redis.zincrby(key, 1, keyword_clean)
 
             # 设置过期时间（7天后自动删除）
             await self._redis.expire(key, 7 * 24 * 3600)
+
+            logger.info(f"记录搜索关键词: {keyword_clean} (当前次数: {int(new_score)})")
 
         except Exception as e:
             logger.warning(f"记录搜索关键词失败: {e}")
@@ -261,6 +265,7 @@ class CacheService:
             [(keyword, count), ...] 列表，按热度降序
         """
         if not self._redis:
+            logger.warning("获取热门关键词失败: Redis 未连接")
             return []
 
         try:
@@ -270,6 +275,10 @@ class CacheService:
 
             # 获取前N个热门关键词（按分数降序）
             results = await self._redis.zrevrange(key, 0, n - 1, withscores=True)
+
+            logger.info(f"获取热门关键词: key={key}, 数量={len(results)}")
+            if results:
+                logger.debug(f"热门关键词数据: {results}")
 
             return [(keyword, int(count)) for keyword, count in results]
 

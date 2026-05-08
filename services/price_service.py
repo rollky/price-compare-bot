@@ -135,6 +135,10 @@ class PriceService:
 
         for p in platforms:
             try:
+                # 记录搜索关键词（用于统计热门）- 无论是否走缓存都要记录
+                logger.info(f"准备记录搜索关键词: {keyword}")
+                await self.cache.record_search_keyword(keyword)
+
                 # 检查缓存
                 if use_cache:
                     cached = await self.cache.get_search_result(keyword, p)
@@ -162,9 +166,6 @@ class PriceService:
                     await self.cache.set_search_result(keyword, result.products, p)
 
                 results.append(result)
-
-                # 记录搜索关键词（用于统计热门）
-                await self.cache.record_search_keyword(keyword)
 
             except Exception as e:
                 logger.error(f"{p.value}搜索失败: {e}")
