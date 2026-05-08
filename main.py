@@ -11,7 +11,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 
 from config import get_settings
 from api import wechat_router, admin_router
-from services.price_service import PriceService
+from services.price_service import get_price_service
 from core.logger import logger
 
 
@@ -68,7 +68,7 @@ app = FastAPI(
 )
 
 # 价格服务实例
-price_service = PriceService()
+price_service = get_price_service()
 
 # 添加禁用缓存中间件（必须在静态文件之前）
 app.add_middleware(NoCacheMiddleware)

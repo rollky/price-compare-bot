@@ -7,7 +7,7 @@ from typing import Optional, List
 from models import ProductInfo, PlatformType, SearchResult
 from platforms import ADAPTERS
 from config import PLATFORM_CONFIGS, get_settings
-from services.cache import CacheService
+from services.cache import get_cache_service
 from core.exceptions import APIError, ProductNotFoundError
 from core.logger import logger
 
@@ -23,7 +23,7 @@ class PriceService:
     """
 
     def __init__(self):
-        self.cache = CacheService()
+        self.cache = get_cache_service()
         self.adapters = {}
         self._init_adapters()
 
@@ -242,3 +242,15 @@ class PriceService:
         all_products.sort(key=lambda x: x.final_price)
 
         return all_products
+
+
+# 全局 PriceService 单例
+_price_service_instance: Optional[PriceService] = None
+
+
+def get_price_service() -> PriceService:
+    """获取 PriceService 单例"""
+    global _price_service_instance
+    if _price_service_instance is None:
+        _price_service_instance = PriceService()
+    return _price_service_instance

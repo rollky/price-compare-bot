@@ -58,7 +58,8 @@ class CacheService:
         Returns:
             ProductInfo对象，如果缓存不存在返回None
         """
-        if not self._redis:
+        # 自动连接（懒加载）
+        if not await self._ensure_connected():
             return None
 
         try:
@@ -84,7 +85,8 @@ class CacheService:
             product: 商品信息
             ttl: 过期时间（秒），默认使用配置值
         """
-        if not self._redis:
+        # 自动连接（懒加载）
+        if not await self._ensure_connected():
             return
 
         try:
@@ -121,7 +123,8 @@ class CacheService:
         Returns:
             商品列表，如果缓存不存在返回None
         """
-        if not self._redis:
+        # 自动连接（懒加载）
+        if not await self._ensure_connected():
             return None
 
         try:
@@ -149,7 +152,8 @@ class CacheService:
             platform: 平台类型
             ttl: 过期时间（秒）
         """
-        if not self._redis:
+        # 自动连接（懒加载）
+        if not await self._ensure_connected():
             return
 
         try:
@@ -173,7 +177,8 @@ class CacheService:
         Returns:
             True如果超过限流阈值
         """
-        if not self._redis:
+        # 自动连接（懒加载）
+        if not await self._ensure_connected():
             return False
 
         try:
@@ -225,6 +230,21 @@ class CacheService:
             rating_count=data.get("rating_count"),
         )
 
+    async def _ensure_connected(self):
+        """确保Redis已连接（懒加载）"""
+        if not self._redis:
+            try:
+                self._redis = await redis.from_url(
+                    self.settings.REDIS_URL,
+                    password=self.settings.REDIS_PASSWORD,
+                    decode_responses=True,
+                )
+                await self._redis.ping()
+            except Exception as e:
+                logger.warning(f"Redis自动连接失败: {e}")
+                return False
+        return True
+
     async def record_search_keyword(self, keyword: str):
         """
         记录搜索关键词（用于统计热门）
@@ -232,8 +252,11 @@ class CacheService:
         Args:
             keyword: 搜索关键词
         """
-        if not self._redis or not keyword:
-            logger.debug(f"跳过记录关键词: redis={self._redis is not None}, keyword={keyword}")
+        if not keyword:
+            return
+
+        # 自动连接（懒加载）
+        if not await self._ensure_connected():
             return
 
         try:
@@ -264,7 +287,8 @@ class CacheService:
         Returns:
             [(keyword, count), ...] 列表，按热度降序
         """
-        if not self._redis:
+        # 自动连接（懒加载）
+        if not await self._ensure_connected():
             logger.warning("获取热门关键词失败: Redis 未连接")
             return []
 
@@ -296,3 +320,15 @@ class CacheService:
             logger.info("缓存已清空")
         except Exception as e:
             logger.error(f"清空缓存失败: {e}")
+
+
+# 全局 CacheService 单例
+_cache_service_instance: Optional['CacheService'] = None
+
+
+def get_cache_service() -> 'CacheService':
+    """获取 CacheService 单例"""
+    global _cache_service_instance
+    if _cache_service_instance is None:
+        _cache_service_instance = CacheService()
+    return _cache_service_instance

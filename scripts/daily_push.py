@@ -7,7 +7,7 @@ import httpx
 from datetime import datetime
 
 from config import get_settings
-from services.price_service import PriceService
+from services.price_service import get_price_service
 from services.message_builder import MessageBuilder
 
 # 热门关键词列表
@@ -76,7 +76,7 @@ async def send_template_message(openid: str, template_id: str, data: dict, acces
 
 async def search_hot_products():
     """搜索热门商品"""
-    price_service = PriceService()
+    price_service = get_price_service()
     await price_service.initialize()
 
     hot_products = []

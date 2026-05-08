@@ -10,7 +10,7 @@ from fastapi.responses import PlainTextResponse
 from loguru import logger
 
 from config import get_settings
-from services import LinkParser, PriceService, MessageBuilder
+from services import LinkParser, get_price_service, MessageBuilder
 from services.kouling_parser import extract_and_parse_kouling, KoulingParser
 from services.intent_classifier import IntentClassifier
 from config.content_config import (
@@ -27,7 +27,7 @@ wechat_router = APIRouter(prefix="/wechat", tags=["wechat"])
 
 # 初始化服务
 link_parser = LinkParser()
-price_service = PriceService()
+price_service = get_price_service()
 
 
 def verify_signature(token: str, signature: str, timestamp: str, nonce: str) -> bool:
