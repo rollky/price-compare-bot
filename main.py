@@ -2,6 +2,7 @@
 公众号比价机器人主程序
 """
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
@@ -91,7 +92,9 @@ class NoCacheStaticFiles(BaseStaticFiles):
         response.headers["Expires"] = "-1"
         return response
 
-app.mount("/static", NoCacheStaticFiles(directory="static"), name="static")
+# 静态文件（管理后台）- 使用绝对路径
+static_dir = Path(__file__).parent / "static"
+app.mount("/static", NoCacheStaticFiles(directory=str(static_dir)), name="static")
 
 
 @app.get("/")
