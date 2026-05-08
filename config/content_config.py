@@ -113,7 +113,7 @@ def get_random_wallpaper() -> Optional[WallpaperItem]:
 
                 # 构造竖屏手机壁纸 URL (1080x1920)
                 if base_url:
-                    mobile_url = f"https://www.bing.com{base_url}_1206x2622.jpg"
+                    mobile_url = f"https://www.bing.com{base_url}_1206×2622.jpg"
                 else:
                     mobile_url = "https://www.bing.com" + image.get("url", "")
 

@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>管理后台 - 公众号助手</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: #f0f2f5;
+            display: flex;
+            height: 100vh;
+        }
+
+        /* 侧边栏 */
+        .sidebar {
+            width: 200px;
+            background: #001529;
+            color: white;
+            flex-shrink: 0;
+        }
+
+        .sidebar-header {
+            padding: 20px;
+            font-size: 18px;
+            font-weight: 600;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .nav-menu {
+            padding: 10px 0;
+        }
+
+        .nav-item {
+            padding: 15px 20px;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .nav-item:hover {
+            background: rgba(255,255,255,0.05);
+        }
+
+        .nav-item.active {
+            background: #1890ff;
+        }
+
+        .nav-icon {
+            font-size: 18px;
+        }
+
+        /* 主内容区 */
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .top-header {
+            background: white;
+            padding: 16px 24px;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .top-header h2 {
+            font-size: 20px;
+            color: #333;
+        }
+
+        .user-info {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .content-area {
+            flex: 1;
+            padding: 20px;
+            overflow: auto;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        /* iframe 嵌入原有页面 */
+        .page-frame {
+            width: 100%;
+            height: calc(100vh - 140px);
+            border: none;
+            background: white;
+            border-radius: 8px;
+        }
+
+        /* 登录弹窗 */
+        .login-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .login-box {
+            background: white;
+            padding: 40px;
+            border-radius: 8px;
+            width: 360px;
+        }
+
+        .login-box h3 {
+            text-align: center;
+            margin-bottom: 24px;
+            font-size: 20px;
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-size: 14px;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #d9d9d9;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        .btn-primary {
+            width: 100%;
+            padding: 12px;
+            background: #1890ff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .btn-primary:hover {
+            background: #40a9ff;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+    </style>
+</head>
+<body>
+    <!-- 登录弹窗 -->
+    <div class="login-overlay" id="loginModal">
+        <div class="login-box">
+            <h3>🔐 管理后台登录</h3>
+            <form id="loginForm">
+                <div class="form-group">
+                    <label>用户名</label>
+                    <input type="text" id="username" value="admin" required>
+                </div>
+                <div class="form-group">
+                    <label>密码</label>
+                    <input type="password" id="password" placeholder="请输入密码" required>
+                </div>
+                <button type="submit" class="btn-primary">登录</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- 侧边栏 -->
+    <div class="sidebar" id="sidebar">
+        <div class="sidebar-header">🤖 公众号助手</div>
+        <div class="nav-menu">
+            <div class="nav-item active" onclick="switchTab('keywords')">
+                <span class="nav-icon">🎯</span>
+                <span>关键词管理</span>
+            </div>
+            <div class="nav-item" onclick="switchTab('menu')">
+                <span class="nav-icon">📱</span>
+                <span>菜单管理</span>
+            </div>
+            <div class="nav-item" onclick="switchTab('riddles')">
+                <span class="nav-icon">🎮</span>
+                <span>猜谜题库</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- 主内容 -->
+    <div class="main-content" id="mainContent">
+        <div class="top-header">
+            <h2 id="pageTitle">关键词管理</h2>
+            <div class="user-info">admin | <a href="#" onclick="logout()" style="color: #1890ff; text-decoration: none;">退出</a></div>
+        </div>
+        <div class="content-area">
+            <iframe id="keywordsFrame" class="page-frame tab-content active" src="keywords.html"></iframe>
+            <iframe id="menuFrame" class="page-frame tab-content" src="menu.html"></iframe>
+            <iframe id="riddlesFrame" class="page-frame tab-content" src="riddles.html"></iframe>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = '/admin';
+        let authHeader = '';
+
+        // 检查登录状态
+        function checkAuth() {
+            authHeader = localStorage.getItem('admin_auth');
+            if (!authHeader) {
+                document.getElementById('loginModal').classList.remove('hidden');
+                document.getElementById('sidebar').style.display = 'none';
+                document.getElementById('mainContent').style.display = 'none';
+                return false;
+            }
+            document.getElementById('loginModal').classList.add('hidden');
+            document.getElementById('sidebar').style.display = 'block';
+            document.getElementById('mainContent').style.display = 'flex';
+            return true;
+        }
+
+        // 登录
+        document.getElementById('loginForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            authHeader = 'Basic ' + btoa(username + ':' + password);
+            localStorage.setItem('admin_auth', authHeader);
+            checkAuth();
+        });
+
+        // 切换 Tab
+        function switchTab(tab) {
+            // 更新导航状态
+            document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
+            event.target.closest('.nav-item').classList.add('active');
+
+            // 更新 iframe 显示
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+            document.getElementById(tab + 'Frame').classList.add('active');
+
+            // 更新标题
+            const titles = {
+                'keywords': '关键词管理',
+                'menu': '公众号菜单管理',
+                'riddles': '猜谜题库管理'
+            };
+            document.getElementById('pageTitle').textContent = titles[tab];
+        }
+
+        // 退出登录
+        function logout() {
+            localStorage.removeItem('admin_auth');
+            location.reload();
+        }
+
+        // 初始化
+        checkAuth();
+    </script>
+</body>
+</html>

@@ -77,24 +77,9 @@ app.add_middleware(NoCacheMiddleware)
 app.include_router(wechat_router)
 app.include_router(admin_router)
 
-# 静态文件（管理后台）
-from starlette.staticfiles import StaticFiles as BaseStaticFiles
-
-class NoCacheStaticFiles(BaseStaticFiles):
-    """禁用缓存的静态文件"""
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-    async def get_response(self, path: str, scope):
-        response = await super().get_response(path, scope)
-        response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate, max-age=0"
-        response.headers["Pragma"] = "no-cache"
-        response.headers["Expires"] = "-1"
-        return response
-
 # 静态文件（管理后台）- 使用绝对路径
 static_dir = Path(__file__).parent / "static"
-app.mount("/static", NoCacheStaticFiles(directory=str(static_dir)), name="static")
+app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 
 
 @app.get("/")
