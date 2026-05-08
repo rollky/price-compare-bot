@@ -59,7 +59,7 @@ async def lifespan(app: FastAPI):
 settings = get_settings()
 app = FastAPI(
     title="公众号比价机器人",
-    description="支持淘宝、京东、拼多多的价格查询和优惠券搜索",
+    description="支持拼多多商品查询和优惠券搜索",
     version="1.0.0",
     docs_url="/docs" if settings.DEBUG else None,
     redoc_url="/redoc" if settings.DEBUG else None,

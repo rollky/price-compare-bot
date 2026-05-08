@@ -7,7 +7,13 @@ from datetime import datetime
 from typing import List, Optional, Dict
 from dataclasses import dataclass, asdict
 
-from core.logger import logger
+# 尝试使用 loguru，如果不存在则使用标准库 logging
+try:
+    from core.logger import logger
+except ImportError:
+    import logging
+    logger = logging.getLogger(__name__)
+from models.database import get_db
 
 
 @dataclass
@@ -36,22 +42,16 @@ class KeywordItem:
 class KeywordManager:
     """关键词管理器"""
 
-    def __init__(self, db_path: str = "data/keywords.db"):
-        self.db_path = db_path
+    _initialized = False
+
+    def __init__(self):
+        self._db = get_db()
         self._init_db()
 
     def _init_db(self):
-        """初始化数据库"""
-        import sqlite3
-        import os
-
-        # 确保目录存在
-        os.makedirs(os.path.dirname(self.db_path), exist_ok=True)
-
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-
-        cursor.execute('''
+        """初始化数据库表"""
+        # 创建表
+        self._db.execute('''
             CREATE TABLE IF NOT EXISTS keywords (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 command_type TEXT NOT NULL UNIQUE,
@@ -67,20 +67,22 @@ class KeywordManager:
         ''')
 
         # 迁移：添加新字段（如果旧表没有）
-        try:
-            cursor.execute('ALTER TABLE keywords ADD COLUMN reply_type TEXT DEFAULT "text"')
-        except:
-            pass
-        try:
-            cursor.execute('ALTER TABLE keywords ADD COLUMN reply_content TEXT')
-        except:
-            pass
+        if not self._db.column_exists('keywords', 'reply_type'):
+            try:
+                self._db.execute('ALTER TABLE keywords ADD COLUMN reply_type TEXT DEFAULT "text"')
+            except Exception as e:
+                logger.warning(f"添加reply_type字段失败: {e}")
 
-        conn.commit()
-        conn.close()
+        if not self._db.column_exists('keywords', 'reply_content'):
+            try:
+                self._db.execute('ALTER TABLE keywords ADD COLUMN reply_content TEXT')
+            except Exception as e:
+                logger.warning(f"添加reply_content字段失败: {e}")
 
-        # 初始化默认数据
-        self._init_default_data()
+        # 只初始化一次默认数据
+        if not KeywordManager._initialized:
+            self._init_default_data()
+            KeywordManager._initialized = True
 
     def _init_default_data(self):
         """初始化默认关键词数据"""
@@ -137,35 +139,23 @@ class KeywordManager:
                description: str = "", priority: int = 0,
                reply_type: str = "text", reply_content: str = "") -> KeywordItem:
         """创建关键词"""
-        import sqlite3
-
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-
         now = datetime.now().isoformat()
-        cursor.execute('''
+
+        cursor = self._db.execute('''
             INSERT INTO keywords (command_type, keywords, description, priority, is_active, reply_type, reply_content, created_at, updated_at)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         ''', (command_type, json.dumps(keywords, ensure_ascii=False),
               description, priority, 1, reply_type, reply_content, now, now))
 
         item_id = cursor.lastrowid
-        conn.commit()
-        conn.close()
-
         logger.info(f"创建关键词: {command_type}")
         return self.get_by_id(item_id)
 
     def get_by_id(self, item_id: int) -> Optional[KeywordItem]:
         """根据ID获取"""
-        import sqlite3
-
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-
-        cursor.execute('SELECT * FROM keywords WHERE id = ?', (item_id,))
-        row = cursor.fetchone()
-        conn.close()
+        with self._db.get_connection() as conn:
+            cursor = conn.execute('SELECT * FROM keywords WHERE id = ?', (item_id,))
+            row = cursor.fetchone()
 
         if row:
             return self._row_to_item(row)
@@ -173,14 +163,9 @@ class KeywordManager:
 
     def get_by_type(self, command_type: str) -> Optional[KeywordItem]:
         """根据类型获取"""
-        import sqlite3
-
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-
-        cursor.execute('SELECT * FROM keywords WHERE command_type = ?', (command_type,))
-        row = cursor.fetchone()
-        conn.close()
+        with self._db.get_connection() as conn:
+            cursor = conn.execute('SELECT * FROM keywords WHERE command_type = ?', (command_type,))
+            row = cursor.fetchone()
 
         if row:
             return self._row_to_item(row)
@@ -188,25 +173,18 @@ class KeywordManager:
 
     def get_all(self, include_inactive: bool = False) -> List[KeywordItem]:
         """获取所有关键词"""
-        import sqlite3
+        with self._db.get_connection() as conn:
+            if include_inactive:
+                cursor = conn.execute('SELECT * FROM keywords ORDER BY priority DESC, id ASC')
+            else:
+                cursor = conn.execute('SELECT * FROM keywords WHERE is_active = 1 ORDER BY priority DESC, id ASC')
 
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-
-        if include_inactive:
-            cursor.execute('SELECT * FROM keywords ORDER BY priority DESC, id ASC')
-        else:
-            cursor.execute('SELECT * FROM keywords WHERE is_active = 1 ORDER BY priority DESC, id ASC')
-
-        rows = cursor.fetchall()
-        conn.close()
+            rows = cursor.fetchall()
 
         return [self._row_to_item(row) for row in rows]
 
     def update(self, item_id: int, **kwargs) -> Optional[KeywordItem]:
         """更新关键词"""
-        import sqlite3
-
         allowed_fields = ['command_type', 'keywords', 'description', 'priority', 'is_active', 'reply_type', 'reply_content']
         updates = []
         values = []
@@ -228,30 +206,17 @@ class KeywordManager:
         values.append(datetime.now().isoformat())
         values.append(item_id)
 
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-
-        cursor.execute(f'''
+        self._db.execute(f'''
             UPDATE keywords SET {', '.join(updates)} WHERE id = ?
         ''', values)
-
-        conn.commit()
-        conn.close()
 
         logger.info(f"更新关键词 ID={item_id}")
         return self.get_by_id(item_id)
 
     def delete(self, item_id: int) -> bool:
         """删除关键词"""
-        import sqlite3
-
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-
-        cursor.execute('DELETE FROM keywords WHERE id = ?', (item_id,))
+        cursor = self._db.execute('DELETE FROM keywords WHERE id = ?', (item_id,))
         affected = cursor.rowcount
-        conn.commit()
-        conn.close()
 
         if affected > 0:
             logger.info(f"删除关键词 ID={item_id}")

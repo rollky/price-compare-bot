@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>猜谜题库管理</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: #f5f7fa;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 24px;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .stats {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 16px 24px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 24px;
+            font-weight: 600;
+            color: #1890ff;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: #999;
+            margin-top: 4px;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background: #1890ff;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #40a9ff;
+        }
+
+        .btn-danger {
+            background: #ff4d4f;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #ff7875;
+        }
+
+        .btn-success {
+            background: #52c41a;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #73d13d;
+        }
+
+        .btn-default {
+            background: #fff;
+            border: 1px solid #d9d9d9;
+            color: #666;
+        }
+
+        .btn-default:hover {
+            border-color: #1890ff;
+            color: #1890ff;
+        }
+
+        .card {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        }
+
+        .filter-bar {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .filter-select {
+            padding: 8px 12px;
+            border: 1px solid #d9d9d9;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        .riddle-item {
+            border: 1px solid #e8e8e8;
+            border-radius: 6px;
+            padding: 16px;
+            margin-bottom: 16px;
+            transition: all 0.3s;
+        }
+
+        .riddle-item:hover {
+            border-color: #1890ff;
+            box-shadow: 0 2px 8px rgba(24,144,255,0.1);
+        }
+
+        .riddle-item.inactive {
+            opacity: 0.6;
+            background: #f5f5f5;
+        }
+
+        .riddle-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 12px;
+        }
+
+        .riddle-question {
+            font-size: 16px;
+            font-weight: 500;
+            color: #333;
+            flex: 1;
+        }
+
+        .riddle-badges {
+            display: flex;
+            gap: 8px;
+        }
+
+        .badge {
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+
+        .badge-active {
+            background: #f6ffed;
+            color: #52c41a;
+            border: 1px solid #b7eb8f;
+        }
+
+        .badge-inactive {
+            background: #fff1f0;
+            color: #ff4d4f;
+            border: 1px solid #ffa39e;
+        }
+
+        .badge-category {
+            background: #e6f7ff;
+            color: #1890ff;
+            border: 1px solid #91d5ff;
+        }
+
+        .badge-difficulty {
+            background: #fff7e6;
+            color: #fa8c16;
+            border: 1px solid #ffd591;
+        }
+
+        .riddle-content {
+            background: #f9f9f9;
+            padding: 12px;
+            border-radius: 4px;
+            margin-bottom: 12px;
+        }
+
+        .riddle-answer {
+            color: #52c41a;
+            font-weight: 500;
+            margin-bottom: 8px;
+        }
+
+        .riddle-hint {
+            color: #666;
+            font-size: 13px;
+        }
+
+        .riddle-actions {
+            display: flex;
+            gap: 8px;
+            justify-content: flex-end;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 8px;
+            padding: 24px;
+            width: 90%;
+            max-width: 500px;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 20px;
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .form-input, .form-textarea, .form-select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #d9d9d9;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        .form-input:focus, .form-textarea:focus, .form-select:focus {
+            outline: none;
+            border-color: #1890ff;
+        }
+
+        .form-textarea {
+            min-height: 80px;
+            resize: vertical;
+        }
+
+        .form-hint {
+            font-size: 12px;
+            color: #999;
+            margin-top: 4px;
+        }
+
+        .modal-footer {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #999;
+        }
+
+        .toast {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 12px 20px;
+            border-radius: 4px;
+            color: white;
+            z-index: 2000;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .toast.show {
+            opacity: 1;
+        }
+
+        .toast-success {
+            background: #52c41a;
+        }
+
+        .toast-error {
+            background: #ff4d4f;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎯 猜谜题库管理</h1>
+            <div>
+                <a href="keywords.html" style="margin-right: 10px; color: #666; text-decoration: none;">关键词管理</a>
+                <a href="menu.html" style="margin-right: 10px; color: #666; text-decoration: none;">菜单管理</a>
+                <button class="btn btn-primary" onclick="openModal()">+ 新增谜语</button>
+            </div>
+        </div>
+
+        <div class="stats" id="statsContainer">
+            <div class="stat-card">
+                <div class="stat-value" id="totalCount">-</div>
+                <div class="stat-label">总题目</div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="filter-bar">
+                <select class="filter-select" id="categoryFilter" onchange="loadRiddles()">
+                    <option value="">全部分类</option>
+                </select>
+                <select class="filter-select" id="difficultyFilter" onchange="loadRiddles()">
+                    <option value="">全部难度</option>
+                    <option value="1">简单</option>
+                    <option value="2">中等</option>
+                    <option value="3">困难</option>
+                </select>
+            </div>
+
+            <div id="riddleList">
+                <div class="loading" style="text-align: center; padding: 40px; color: #999;">加载中...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal -->
+    <div class="modal" id="modal">
+        <div class="modal-content">
+            <div class="modal-header" id="modalTitle">新增谜语</div>
+            <form id="riddleForm">
+                <input type="hidden" id="itemId">
+
+                <div class="form-group">
+                    <label class="form-label">题目 *</label>
+                    <textarea class="form-textarea" id="question" placeholder="如：什么东西越洗越脏？" required></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">答案 *</label>
+                    <input type="text" class="form-input" id="answer" placeholder="如：水" required>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">提示</label>
+                    <input type="text" class="form-input" id="hint" placeholder="如：想想每天用的...">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">分类</label>
+                    <input type="text" class="form-input" id="category" placeholder="如：经典、趣味、益智、儿童、生活" value="趣味">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">难度</label>
+                    <select class="form-select" id="difficulty">
+                        <option value="1">简单</option>
+                        <option value="2">中等</option>
+                        <option value="3">困难</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">
+                        <input type="checkbox" id="isActive" checked> 启用
+                    </label>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-default" onclick="closeModal()">取消</button>
+                    <button type="submit" class="btn btn-primary">保存</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script>
+        const API_BASE = '/admin';
+        let authHeader = '';
+        let riddlesData = [];
+
+        // 检查登录
+        function checkAuth() {
+            authHeader = localStorage.getItem('admin_auth');
+            if (!authHeader) {
+                window.location.href = 'keywords.html';
+                return false;
+            }
+            return true;
+        }
+
+        // 加载谜语列表
+        async function loadRiddles() {
+            if (!checkAuth()) return;
+
+            const category = document.getElementById('categoryFilter').value;
+            const difficulty = document.getElementById('difficultyFilter').value;
+
+            let url = `${API_BASE}/riddles?include_inactive=true`;
+            if (category) url += `&category=${encodeURIComponent(category)}`;
+            if (difficulty) url += `&difficulty=${difficulty}`;
+
+            try {
+                const response = await fetch(url, {
+                    headers: { 'Authorization': authHeader }
+                });
+
+                if (response.status === 401) {
+                    localStorage.removeItem('admin_auth');
+                    window.location.href = 'keywords.html';
+                    return;
+                }
+
+                const data = await response.json();
+                riddlesData = data.items || [];
+
+                // 更新统计
+                document.getElementById('totalCount').textContent = data.total || 0;
+
+                // 更新分类筛选
+                const categorySelect = document.getElementById('categoryFilter');
+                const currentCategories = Array.from(categorySelect.options).map(o => o.value);
+                (data.categories || []).forEach(cat => {
+                    if (!currentCategories.includes(cat)) {
+                        const option = document.createElement('option');
+                        option.value = cat;
+                        option.textContent = cat;
+                        categorySelect.appendChild(option);
+                    }
+                });
+
+                renderRiddles();
+            } catch (error) {
+                showToast('加载失败：' + error.message, 'error');
+            }
+        }
+
+        // 渲染谜语列表
+        function renderRiddles() {
+            const container = document.getElementById('riddleList');
+            if (riddlesData.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div style="font-size: 48px; margin-bottom: 16px;">📝</div>
+                        <p>暂无谜语，点击右上角添加</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = riddlesData.map(item => `
+                <div class="riddle-item ${item.is_active ? '' : 'inactive'}">
+                    <div class="riddle-header">
+                        <div class="riddle-question">${item.question}</div>
+                        <div class="riddle-badges">
+                            <span class="badge badge-category">${item.category || '未分类'}</span>
+                            <span class="badge badge-difficulty">${getDifficultyText(item.difficulty)}</span>
+                            <span class="badge ${item.is_active ? 'badge-active' : 'badge-inactive'}">
+                                ${item.is_active ? '启用' : '禁用'}
+                            </span>
+                        </div>
+                    </div>
+                    <div class="riddle-content">
+                        <div class="riddle-answer">答案：${item.answer}</div>
+                        ${item.hint ? `<div class="riddle-hint">💡 提示：${item.hint}</div>` : ''}
+                    </div>
+                    <div class="riddle-actions">
+                        <button class="btn btn-default" onclick="editRiddle(${item.id})">编辑</button>
+                        <button class="btn btn-danger" onclick="deleteRiddle(${item.id})">删除</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // 获取难度文本
+        function getDifficultyText(level) {
+            const map = { 1: '简单', 2: '中等', 3: '困难' };
+            return map[level] || '未知';
+        }
+
+        // 打开弹窗
+        function openModal(isEdit = false) {
+            document.getElementById('modal').classList.add('active');
+            document.getElementById('modalTitle').textContent = isEdit ? '编辑谜语' : '新增谜语';
+            if (!isEdit) {
+                document.getElementById('riddleForm').reset();
+                document.getElementById('itemId').value = '';
+            }
+        }
+
+        // 关闭弹窗
+        function closeModal() {
+            document.getElementById('modal').classList.remove('active');
+        }
+
+        // 编辑谜语
+        function editRiddle(id) {
+            const item = riddlesData.find(r => r.id === id);
+            if (!item) return;
+
+            document.getElementById('itemId').value = item.id;
+            document.getElementById('question').value = item.question;
+            document.getElementById('answer').value = item.answer;
+            document.getElementById('hint').value = item.hint || '';
+            document.getElementById('category').value = item.category || '趣味';
+            document.getElementById('difficulty').value = item.difficulty || 1;
+            document.getElementById('isActive').checked = item.is_active;
+
+            openModal(true);
+        }
+
+        // 删除谜语
+        async function deleteRiddle(id) {
+            if (!confirm('确定要删除这个谜语吗？')) return;
+
+            try {
+                const response = await fetch(`${API_BASE}/riddles/${id}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': authHeader }
+                });
+
+                const data = await response.json();
+
+                if (data.code === 0) {
+                    showToast('删除成功');
+                    loadRiddles();
+                } else {
+                    showToast(data.message || '删除失败', 'error');
+                }
+            } catch (error) {
+                showToast('删除失败：' + error.message, 'error');
+            }
+        }
+
+        // 提交表单
+        document.getElementById('riddleForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const id = document.getElementById('itemId').value;
+            const payload = {
+                question: document.getElementById('question').value.trim(),
+                answer: document.getElementById('answer').value.trim(),
+                hint: document.getElementById('hint').value.trim(),
+                category: document.getElementById('category').value.trim() || '趣味',
+                difficulty: parseInt(document.getElementById('difficulty').value),
+                is_active: document.getElementById('isActive').checked
+            };
+
+            try {
+                let response;
+                if (id) {
+                    response = await fetch(`${API_BASE}/riddles/${id}`, {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': authHeader
+                        },
+                        body: JSON.stringify(payload)
+                    });
+                } else {
+                    response = await fetch(`${API_BASE}/riddles`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': authHeader
+                        },
+                        body: JSON.stringify(payload)
+                    });
+                }
+
+                const data = await response.json();
+
+                if (data.code === 0) {
+                    showToast(id ? '更新成功' : '创建成功');
+                    closeModal();
+                    loadRiddles();
+                } else {
+                    showToast(data.message || '操作失败', 'error');
+                }
+            } catch (error) {
+                showToast('操作失败：' + error.message, 'error');
+            }
+        });
+
+        // 显示提示
+        function showToast(message, type = 'success') {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.className = `toast toast-${type} show`;
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3000);
+        }
+
+        // 点击弹窗外部关闭
+        document.getElementById('modal').addEventListener('click', (e) => {
+            if (e.target.id === 'modal') {
+                closeModal();
+            }
+        });
+
+        // 初始化
+        loadRiddles();
+    </script>
+</body>
+</html>

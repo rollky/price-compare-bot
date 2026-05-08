@@ -14,10 +14,12 @@ from services import LinkParser, PriceService, MessageBuilder
 from services.kouling_parser import extract_and_parse_kouling, KoulingParser
 from services.intent_classifier import IntentClassifier
 from config.content_config import (
-    match_special_command, get_random_wallpaper, get_random_riddle,
-    TRAFFIC_CARD_CONFIG, WallpaperItem, RiddleItem
+    match_special_command, get_random_wallpaper,
+    TRAFFIC_CARD_CONFIG, WallpaperItem
 )
+from models import RiddleItem, get_riddle_game_manager
 from models.keyword import get_keyword_manager
+from services.wechat_menu import handle_menu_event
 from core.exceptions import APIError, ProductNotFoundError, ParseError
 from core.logger import logger as log
 
@@ -117,7 +119,7 @@ async def wechat_callback(request: Request):
         if msg_type == "text":
             response = await handle_text_message(content, from_user)
         elif msg_type == "event":
-            response = await handle_event_message(message)
+            response = await handle_event_message(message, from_user)
         else:
             response = MessageBuilder.build_text_message("暂不支持该类型消息")
 
@@ -241,20 +243,20 @@ async def handle_link_message(link: str) -> dict:
                 return MessageBuilder.build_text_message(
                     "🍑 淘宝链接暂时不支持直接查券\n\n"
                     "你可以：\n"
-                    "1️⃣ 发送商品名称（如：iPhone 15）\n"
-                    "2️⃣ 等待淘宝接口接入（开发中）\n\n"
+                    "1️⃣ 发送商品名称（如：iPhone 15）让我帮你搜拼多多\n"
+                    "2️⃣ 直接发送拼多多商品链接\n\n"
                     "回复【热门】看看拼多多有什么优惠~"
                 )
             elif "jd.com" in link_lower or "jingxi.com" in link_lower or "3.cn" in link_lower:
                 return MessageBuilder.build_text_message(
                     "🐕 京东链接暂时不支持直接查券\n\n"
                     "你可以：\n"
-                    "1️⃣ 发送商品名称（如：洗衣液）\n"
-                    "2️⃣ 等待京东接口接入（开发中）\n\n"
+                    "1️⃣ 发送商品名称（如：洗衣液）让我帮你搜拼多多\n"
+                    "2️⃣ 直接发送拼多多商品链接\n\n"
                     "回复【热门】看看拼多多有什么优惠~"
                 )
             return MessageBuilder.build_text_message(
-                "无法识别该链接，请发送淘宝、京东或拼多多的商品链接"
+                "无法识别该链接，请发送拼多多商品链接或商品名称"
             )
 
         # 查询商品信息，传递 extra 参数（包含拼多多的 goods_sign）
@@ -309,12 +311,14 @@ async def handle_wallpaper_message() -> dict:
 
 async def handle_riddle_message(openid: str) -> dict:
     """处理猜谜请求"""
-    from config.content_config import set_user_riddle
-    riddle = get_random_riddle()
-    if riddle:
-        # 记录用户当前的谜题
-        set_user_riddle(openid, riddle)
-        return MessageBuilder.build_riddle_message(riddle)
+    try:
+        game_manager = get_riddle_game_manager()
+        riddle = game_manager.get_random_for_user(openid)
+        if riddle:
+            return MessageBuilder.build_riddle_message(riddle)
+    except Exception as e:
+        log.error(f"获取谜语失败: {e}")
+
     return MessageBuilder.build_text_message(
         "🎯 题库更新中...\n\n先试试其他功能吧！\n发送【热门】看看今天大家都在买什么~"
     )
@@ -322,10 +326,14 @@ async def handle_riddle_message(openid: str) -> dict:
 
 async def handle_riddle_answer(openid: str) -> dict:
     """处理查看猜谜答案"""
-    from config.content_config import get_user_riddle
-    riddle = get_user_riddle(openid)
-    if riddle:
-        return MessageBuilder.build_riddle_answer_message(riddle)
+    try:
+        game_manager = get_riddle_game_manager()
+        riddle = game_manager.get_user_riddle(openid)
+        if riddle:
+            return MessageBuilder.build_riddle_answer_message(riddle)
+    except Exception as e:
+        log.error(f"获取用户谜题失败: {e}")
+
     return MessageBuilder.build_text_message(
         "🤔 你还没有开始猜谜呢！\n\n"
         "回复【猜谜】开始答题\n"
@@ -337,7 +345,7 @@ async def handle_traffic_card_message() -> dict:
     """处理流量卡推广"""
     if not TRAFFIC_CARD_CONFIG["enabled"]:
         return MessageBuilder.build_text_message(
-            "📱 超值流量卡即将上线！\n\n"
+            "📱 超值流量卡推广暂未启用\n\n"
             "正在和运营商对接中，敬请期待~\n"
             "回复【热门】看看现在有什么优惠商品"
         )
@@ -394,9 +402,9 @@ async def handle_search_message(keyword: str) -> dict:
         )
 
 
-async def handle_event_message(message: dict) -> dict:
+async def handle_event_message(message: dict, from_user: str) -> dict:
     """
-    处理事件消息（关注、取消关注等）
+    处理事件消息（关注、取消关注、菜单点击等）
     """
     event = message.get("Event")
 
@@ -411,6 +419,22 @@ async def handle_event_message(message: dict) -> dict:
     elif event == "unsubscribe":
         # 取消关注
         log.info(f"用户取消关注: {message.get('FromUserName')}")
+        return MessageBuilder.build_text_message("")
+    elif event == "CLICK":
+        # 菜单点击事件
+        event_key = message.get("EventKey", "")
+        log.info(f"用户点击菜单: {event_key}")
+
+        # 将菜单事件转换为对应的指令处理
+        command = handle_menu_event(event_key)
+        if command:
+            # 复用文本消息处理逻辑
+            return await handle_text_message(command, from_user)
+        else:
+            return MessageBuilder.build_text_message("该功能暂未配置，试试其他菜单吧~")
+    elif event == "VIEW":
+        # 菜单链接跳转事件（不需要处理，微信自动跳转）
+        log.info(f"用户点击链接菜单: {message.get('EventKey')}")
         return MessageBuilder.build_text_message("")
 
     return MessageBuilder.build_text_message("")

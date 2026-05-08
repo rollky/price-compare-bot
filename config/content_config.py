@@ -49,33 +49,7 @@ WALLPAPERS: List[WallpaperItem] = [
 ]
 
 # 猜谜题库
-RIDDLES: List[RiddleItem] = [
-    RiddleItem(
-        question="🏮 什么东西越洗越脏？",
-        answer="水",
-        hint="想想每天用的..."
-    ),
-    RiddleItem(
-        question="🏮 什么东西有头无脚？",
-        answer="硬币",
-        hint="买东西会用到..."
-    ),
-    RiddleItem(
-        question="🏮 什么东西打破了才能吃？",
-        answer="鸡蛋",
-        hint="早餐常见..."
-    ),
-    RiddleItem(
-        question="🏮 什么东西越生气越大？",
-        answer="脾气",
-        hint="情绪相关..."
-    ),
-    RiddleItem(
-        question="🏮 什么东西属于你，但别人用的比你多？",
-        answer="名字",
-        hint="每个人都有..."
-    ),
-]
+# 注意：现在从数据库读取，使用 RiddleManager 管理
 
 # 流量卡推广配置
 TRAFFIC_CARD_CONFIG = {
@@ -139,7 +113,7 @@ def get_random_wallpaper() -> Optional[WallpaperItem]:
 
                 # 构造竖屏手机壁纸 URL (1080x1920)
                 if base_url:
-                    mobile_url = f"https://www.bing.com{base_url}_1080x1920.jpg"
+                    mobile_url = f"https://www.bing.com{base_url}_1206x2622.jpg"
                 else:
                     mobile_url = "https://www.bing.com" + image.get("url", "")
 
@@ -167,26 +141,55 @@ def get_random_wallpaper() -> Optional[WallpaperItem]:
     return None
 
 
-def get_random_riddle() -> RiddleItem:
-    """随机获取一个谜语"""
-    import random
-    if RIDDLES:
-        return random.choice(RIDDLES)
-    return None
+def get_random_riddle() -> Optional[RiddleItem]:
+    """
+    随机获取一个谜语
+    从数据库读取
+    """
+    try:
+        from models.riddle import get_riddle_manager
+        manager = get_riddle_manager()
+        return manager.get_random()
+    except Exception as e:
+        logger = logging.getLogger(__name__)
+        logger.warning(f"从数据库获取谜语失败: {e}")
+        return None
 
 
-# 记录当前用户的猜谜状态（简单实现，实际应该用Redis）
-_user_riddles = {}
-
-
+# 记录当前用户的猜谜状态
+# 使用 RiddleGameManager 管理（支持数据库）
 def set_user_riddle(openid: str, riddle: RiddleItem):
     """记录用户当前的谜题"""
-    _user_riddles[openid] = riddle
+    try:
+        from models.riddle import get_riddle_game_manager
+        manager = get_riddle_game_manager()
+        manager.set_user_riddle(openid, riddle.id)
+    except Exception as e:
+        logger = logging.getLogger(__name__)
+        logger.warning(f"设置用户谜题失败: {e}")
 
 
-def get_user_riddle(openid: str) -> RiddleItem:
+def get_user_riddle(openid: str) -> Optional[RiddleItem]:
     """获取用户当前的谜题"""
-    return _user_riddles.get(openid)
+    try:
+        from models.riddle import get_riddle_game_manager
+        manager = get_riddle_game_manager()
+        return manager.get_user_riddle(openid)
+    except Exception as e:
+        logger = logging.getLogger(__name__)
+        logger.warning(f"获取用户谜题失败: {e}")
+        return None
+
+
+def clear_user_riddle(openid: str):
+    """清除用户的谜题记录"""
+    try:
+        from models.riddle import get_riddle_game_manager
+        manager = get_riddle_game_manager()
+        manager.clear_user_riddle(openid)
+    except Exception as e:
+        logger = logging.getLogger(__name__)
+        logger.warning(f"清除用户谜题失败: {e}")
 
 
 def match_special_command(text: str) -> str:

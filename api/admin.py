@@ -9,6 +9,8 @@ from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from pydantic import BaseModel
 
 from models.keyword import KeywordManager, get_keyword_manager, KeywordItem
+from models.riddle import RiddleManager, RiddleItem, get_riddle_manager
+from services.wechat_menu import get_menu_manager, MenuButton
 from config import get_settings
 from core.logger import logger
 
@@ -218,3 +220,268 @@ async def validate_keyword(text: str):
         "matched_command": matched,
         "all_keywords": manager.get_keywords_dict()
     }
+
+
+# ========== 微信菜单管理 ==========
+
+class MenuButtonCreate(BaseModel):
+    name: str
+    type: Optional[str] = None  # click, view, miniprogram等
+    key: Optional[str] = None
+    url: Optional[str] = None
+    sub_buttons: Optional[List[dict]] = None
+
+
+class MenuCreateRequest(BaseModel):
+    buttons: List[MenuButtonCreate]
+
+
+@admin_router.post("/menu/create", response_model=APIResponse, dependencies=[Depends(verify_admin)])
+async def create_wechat_menu(data: MenuCreateRequest):
+    """
+    创建微信公众号菜单
+    """
+    menu_manager = get_menu_manager()
+
+    # 构建菜单按钮
+    buttons = []
+    for btn_data in data.buttons:
+        btn = MenuButton(
+            name=btn_data.name,
+            type=btn_data.type,
+            key=btn_data.key,
+            url=btn_data.url
+        )
+
+        # 处理子菜单
+        if btn_data.sub_buttons:
+            btn.sub_buttons = [
+                MenuButton(
+                    name=sub.get("name"),
+                    type=sub.get("type"),
+                    key=sub.get("key"),
+                    url=sub.get("url")
+                )
+                for sub in btn_data.sub_buttons
+            ]
+
+        buttons.append(btn)
+
+    success = menu_manager.create_menu(buttons)
+
+    if success:
+        return APIResponse(code=0, message="菜单创建成功")
+    else:
+        raise HTTPException(status_code=500, detail="菜单创建失败，请检查微信配置")
+
+
+@admin_router.post("/menu/create-default", response_model=APIResponse, dependencies=[Depends(verify_admin)])
+async def create_default_menu():
+    """
+    创建默认菜单配置
+    """
+    menu_manager = get_menu_manager()
+    success = menu_manager.create_default_menu()
+
+    if success:
+        return APIResponse(code=0, message="默认菜单创建成功")
+    else:
+        raise HTTPException(status_code=500, detail="菜单创建失败，请检查微信配置")
+
+
+@admin_router.get("/menu", dependencies=[Depends(verify_admin)])
+async def get_wechat_menu():
+    """
+    获取当前公众号菜单配置
+    """
+    menu_manager = get_menu_manager()
+    menu = menu_manager.get_menu()
+
+    if menu:
+        return {"code": 0, "data": menu}
+    else:
+        return {"code": 0, "data": None, "message": "未配置菜单或获取失败"}
+
+
+@admin_router.delete("/menu", response_model=APIResponse, dependencies=[Depends(verify_admin)])
+async def delete_wechat_menu():
+    """
+    删除所有公众号菜单
+    """
+    menu_manager = get_menu_manager()
+    success = menu_manager.delete_menu()
+
+    if success:
+        return APIResponse(code=0, message="菜单删除成功")
+    else:
+        raise HTTPException(status_code=500, detail="菜单删除失败")
+
+
+# ========== 猜谜题库管理 ==========
+
+class RiddleCreate(BaseModel):
+    question: str
+    answer: str
+    hint: str = ""
+    category: str = "general"
+    difficulty: int = 1  # 1-简单, 2-中等, 3-困难
+
+
+class RiddleUpdate(BaseModel):
+    question: Optional[str] = None
+    answer: Optional[str] = None
+    hint: Optional[str] = None
+    category: Optional[str] = None
+    difficulty: Optional[int] = None
+    is_active: Optional[bool] = None
+
+
+class RiddleResponse(BaseModel):
+    id: int
+    question: str
+    answer: str
+    hint: str
+    category: str
+    difficulty: int
+    is_active: bool
+    created_at: Optional[str]
+    updated_at: Optional[str]
+
+
+class RiddleListResponse(BaseModel):
+    total: int
+    items: List[RiddleResponse]
+    categories: List[str]
+
+
+@admin_router.get("/riddles", response_model=RiddleListResponse, dependencies=[Depends(verify_admin)])
+async def get_riddles(
+    category: Optional[str] = Query(None, description="分类筛选"),
+    difficulty: Optional[int] = Query(None, description="难度筛选: 1-简单, 2-中等, 3-困难"),
+    include_inactive: bool = Query(False, description="是否包含已禁用的")
+):
+    """获取所有谜语"""
+    manager = get_riddle_manager()
+    items = manager.get_all(
+        category=category,
+        difficulty=difficulty,
+        include_inactive=include_inactive
+    )
+    categories = manager.get_categories()
+
+    return RiddleListResponse(
+        total=len(items),
+        items=[RiddleResponse(
+            id=item.id,
+            question=item.question,
+            answer=item.answer,
+            hint=item.hint,
+            category=item.category,
+            difficulty=item.difficulty,
+            is_active=item.is_active,
+            created_at=item.created_at,
+            updated_at=item.updated_at
+        ) for item in items],
+        categories=categories
+    )
+
+
+@admin_router.get("/riddles/{item_id}", response_model=RiddleResponse, dependencies=[Depends(verify_admin)])
+async def get_riddle(item_id: int):
+    """获取单个谜语"""
+    manager = get_riddle_manager()
+    item = manager.get_by_id(item_id)
+
+    if not item:
+        raise HTTPException(status_code=404, detail="谜语不存在")
+
+    return RiddleResponse(
+        id=item.id,
+        question=item.question,
+        answer=item.answer,
+        hint=item.hint,
+        category=item.category,
+        difficulty=item.difficulty,
+        is_active=item.is_active,
+        created_at=item.created_at,
+        updated_at=item.updated_at
+    )
+
+
+@admin_router.post("/riddles", response_model=APIResponse, dependencies=[Depends(verify_admin)])
+async def create_riddle(data: RiddleCreate):
+    """创建谜语"""
+    manager = get_riddle_manager()
+
+    item = manager.create(
+        question=data.question,
+        answer=data.answer,
+        hint=data.hint,
+        category=data.category,
+        difficulty=data.difficulty
+    )
+
+    return APIResponse(
+        code=0,
+        message="创建成功",
+        data={"id": item.id}
+    )
+
+
+@admin_router.put("/riddles/{item_id}", response_model=APIResponse, dependencies=[Depends(verify_admin)])
+async def update_riddle(item_id: int, data: RiddleUpdate):
+    """更新谜语"""
+    manager = get_riddle_manager()
+
+    existing = manager.get_by_id(item_id)
+    if not existing:
+        raise HTTPException(status_code=404, detail="谜语不存在")
+
+    update_data = data.model_dump(exclude_unset=True)
+    if not update_data:
+        raise HTTPException(status_code=400, detail="没有要更新的字段")
+
+    item = manager.update(item_id, **update_data)
+
+    return APIResponse(
+        code=0,
+        message="更新成功",
+        data={"id": item.id}
+    )
+
+
+@admin_router.delete("/riddles/{item_id}", response_model=APIResponse, dependencies=[Depends(verify_admin)])
+async def delete_riddle(item_id: int):
+    """删除谜语"""
+    manager = get_riddle_manager()
+
+    existing = manager.get_by_id(item_id)
+    if not existing:
+        raise HTTPException(status_code=404, detail="谜语不存在")
+
+    success = manager.delete(item_id)
+
+    return APIResponse(
+        code=0,
+        message="删除成功",
+        data={"deleted": success}
+    )
+
+
+@admin_router.get("/riddles-stats", dependencies=[Depends(verify_admin)])
+async def get_riddles_stats():
+    """
+    获取谜语统计信息
+    """
+    manager = get_riddle_manager()
+    categories = manager.get_categories()
+
+    stats = {
+        "total": manager.count(),
+        "categories": {}
+    }
+
+    for category in categories:
+        stats["categories"][category] = manager.count(category=category)
+
+    return {"code": 0, "data": stats}

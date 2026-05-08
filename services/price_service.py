@@ -223,7 +223,7 @@ class PriceService:
         Returns:
             各平台的商品信息列表（按价格排序）
         """
-        platforms = platforms or [PlatformType.TAOBAO, PlatformType.JD, PlatformType.PDD]
+        platforms = platforms or [PlatformType.PDD]
 
         all_products = []
 
